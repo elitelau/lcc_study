@@ -1,0 +1,35 @@
+--------------------------- external symbols -----------------------------------
+   printf: [extern][defined=0][oldstyle][ref=1.0] | extern int printf(); | int func
+
+------------------------- global symbols --------------------------------
+   main: [defined=1][newstyle][ref=0.0] | int main(int, char **); | int func(int,ptr->ptr->char)
+   g: [defined=0][newstyle][ref=2.0] | int g(char, char); | int func(char,char)
+
+--------------------------- constant symbols -----------------------------------
+   0: [static][defined=1][ref=0.0] | static int 0; | int
+   4: [static][defined=1][ref=0.0] | static int 4; | int
+   0: [static][defined=1][ref=0.0] | static unsigned long 0; | unsigned long
+   sizeof function is: %d.
+: [static][defined=1][ref=0.0] | static char sizeof function is: %d.
+[25]; | array (25*1:1) of char
+
+--------------------------- types symbols --------------------------------------
+   T*: [defined=0][ref=0.0] | 
+   void: [defined=0][ref=0.0] |  | void
+   unsigned long long: [defined=0][ref=0.0] |  | unsigned long long
+   unsigned int: [defined=0][ref=0.0] |  | unsigned int
+   unsigned short: [defined=0][ref=0.0] |  | unsigned short
+   unsigned long: [defined=0][ref=0.0] |  | unsigned long
+   unsigned char: [defined=0][ref=0.0] |  | unsigned char
+   signed char: [defined=0][ref=0.0] |  | signed char
+   short: [defined=0][ref=0.0] |  | short
+   long long int: [defined=0][ref=0.0] |  | long long int
+   long int: [defined=0][ref=0.0] |  | long int
+   long double: [defined=0][addressed][ref=0.0] |  | long double
+   int: [defined=0][ref=0.0] |  | int
+   float: [defined=0][addressed][ref=0.0] |  | float
+   double: [defined=0][addressed][ref=0.0] |  | double
+   char: [defined=0][ref=0.0] |  | char
+
+--------------------------- labels symbols -------------------------------------
+-------------------------------------------------------------------------------

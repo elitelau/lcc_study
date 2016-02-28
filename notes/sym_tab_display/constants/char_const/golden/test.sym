@@ -1,0 +1,13 @@
+--------------------------- external symbols -----------------------------------
+
+------------------------- global symbols --------------------------------
+   main: [defined=1][oldstyle][ref=0.0] | int main(void);
+   g: [defined=1][newstyle][ref=1.0] | void g(unsigned int);
+   f: [defined=1][newstyle][ref=1.0] | void f(int);
+
+--------------------------- constant symbols -----------------------------------
+   7: [static][defined=1][ref=0.0] | static int 7;
+   65: [static][defined=1][ref=0.0] | static unsigned int 65;
+   4: [static][defined=1][ref=0.0] | static int 4;
+   97: [static][defined=1][ref=0.0] | static int 97;
+-------------------------------------------------------------------------------

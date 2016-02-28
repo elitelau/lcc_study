@@ -1,0 +1,38 @@
+        -:    0:Source:test.c
+        -:    0:Graph:test.gcno
+        -:    0:Data:test.gcda
+        -:    0:Runs:1
+        -:    0:Programs:1
+        -:    1:enum {
+        -:    2:   A = 0,
+        -:    3:   B,
+        -:    4:   C,
+        -:    5:   D
+        -:    6:};
+        -:    7:
+function test called 2 returned 100% blocks executed 63%
+        2:    8:void test(int block) {
+        2:    9:   switch(block) {
+        -:   10:   case A:
+        1:   11:      printf("block A covered!\n");
+        1:   12:      break;
+        -:   13:   case B:
+    #####:   14:      printf("block B covered!\n");
+    #####:   15:      break;
+        -:   16:   case C:
+    #####:   17:      printf("block C covered!\n");
+    #####:   18:      break;
+        -:   19:   case D:
+        1:   20:      printf("block D covered!\n");
+        -:   21:      break;
+        -:   22:   default:
+        2:   23:     break;
+        -:   24:   }
+        -:   25:}
+        -:   26:
+function main called 1 returned 100% blocks executed 100%
+        1:   27:int main(int argc, char** argv) {
+        1:   28:   test(A);
+        1:   29:   test(D);
+        1:   30:   return 0;
+        -:   31:}

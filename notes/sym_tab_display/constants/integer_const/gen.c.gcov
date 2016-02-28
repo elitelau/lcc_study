@@ -1,0 +1,883 @@
+        -:    0:Source:src/gen.c
+        -:    0:Graph:lcc/gen.gcno
+        -:    0:Data:lcc/gen.gcda
+        -:    0:Runs:1
+        -:    0:Programs:1
+        -:    1:#include "c.h"
+        -:    2:
+        -:    3:static char rcsid[] = "$Id: gen.nw,v 2.36 1998/09/09 00:44:23 drh Exp $";
+        -:    4:
+        -:    5:#define readsreg(p) \
+        -:    6:	(generic((p)->op)==INDIR && (p)->kids[0]->op==VREG+P)
+        -:    7:#define setsrc(d) ((d) && (d)->x.regnode && \
+        -:    8:	(d)->x.regnode->set == src->x.regnode->set && \
+        -:    9:	(d)->x.regnode->mask&src->x.regnode->mask)
+        -:   10:
+        -:   11:#define relink(a, b) ((b)->x.prev = (a), (a)->x.next = (b))
+        -:   12:
+        -:   13:static Symbol   askfixedreg(Symbol);
+        -:   14:static Symbol   askreg(Symbol, unsigned*);
+        -:   15:static void     blkunroll(int, int, int, int, int, int, int[]);
+        -:   16:static void     docall(Node);
+        -:   17:static void     dumpcover(Node, int, int);
+        -:   18:static void     dumpregs(char *, char *, char *);
+        -:   19:static void     dumprule(int);
+        -:   20:static void     dumptree(Node);
+        -:   21:static unsigned	emitasm(Node, int);
+        -:   22:static void     genreload(Node, Symbol, int);
+        -:   23:static void     genspill(Symbol, Node, Symbol);
+        -:   24:static Symbol   getreg(Symbol, unsigned*, Node);
+        -:   25:static int      getrule(Node, int);
+        -:   26:static void     linearize(Node, Node);
+        -:   27:static int      moveself(Node);
+        -:   28:static void     prelabel(Node);
+        -:   29:static Node*    prune(Node, Node*);
+        -:   30:static void     putreg(Symbol);
+        -:   31:static void     ralloc(Node);
+        -:   32:static void     reduce(Node, int);
+        -:   33:static int      reprune(Node*, int, int, Node);
+        -:   34:static int      requate(Node);
+        -:   35:static Node     reuse(Node, int);
+        -:   36:static void     rewrite(Node);
+        -:   37:static Symbol   spillee(Symbol, unsigned mask[], Node);
+        -:   38:static void     spillr(Symbol, Node);
+        -:   39:static int      uses(Node, Regnode);
+        -:   40:
+        -:   41:int offset;
+        -:   42:
+        -:   43:int maxoffset;
+        -:   44:
+        -:   45:int framesize;
+        -:   46:int argoffset;
+        -:   47:
+        -:   48:int maxargoffset;
+        -:   49:
+        -:   50:int dalign, salign;
+        -:   51:int bflag = 0;  /* omit */
+        -:   52:int dflag = 0;
+        -:   53:
+        -:   54:int swap;
+        -:   55:
+        -:   56:unsigned (*emitter)(Node, int) = emitasm;
+        -:   57:static char NeedsReg[] = {
+        -:   58:	0,                      /* unused */
+        -:   59:	1,                      /* CNST */
+        -:   60:	0, 0,                   /* ARG ASGN */
+        -:   61:	1,                      /* INDIR  */
+        -:   62:	0, 0, 1, 1,             /*  -  - CVF CVI */
+        -:   63:	1, 0, 1, 1,             /* CVP - CVU NEG */
+        -:   64:	1,                      /* CALL */
+        -:   65:	1,                      /* LOAD */
+        -:   66:	0,                      /* RET */
+        -:   67:	1, 1, 1,                /* ADDRG ADDRF ADDRL */
+        -:   68:	1, 1, 1, 1, 1,          /* ADD SUB LSH MOD RSH */
+        -:   69:	1, 1, 1, 1,             /* BAND BCOM BOR BXOR */
+        -:   70:	1, 1,                   /* DIV MUL */
+        -:   71:	0, 0, 0, 0, 0, 0,       /* EQ GE GT LE LT NE */
+        -:   72:	0, 0                   /* JUMP LABEL   */
+        -:   73:};
+        -:   74:Node head;
+        -:   75:
+        -:   76:unsigned freemask[2];
+        -:   77:unsigned usedmask[2];
+        -:   78:unsigned tmask[2];
+        -:   79:unsigned vmask[2];
+function mkreg called 26 returned 100% blocks executed 100%
+       26:   80:Symbol mkreg(char *fmt, int n, int mask, int set) {
+       26:   81:	Symbol p;
+        -:   82:
+       26:   83:	NEW0(p, PERM);
+       26:   84:	p->name = p->x.name = stringf(fmt, n);
+       26:   85:	NEW0(p->x.regnode, PERM);
+       26:   86:	p->x.regnode->number = n;
+       26:   87:	p->x.regnode->mask = mask<<n;
+       26:   88:	p->x.regnode->set = set;
+       26:   89:	return p;
+        -:   90:}
+function mkwildcard called 4 returned 100% blocks executed 100%
+        4:   91:Symbol mkwildcard(Symbol *syms) {
+        4:   92:	Symbol p;
+        -:   93:
+        4:   94:	NEW0(p, PERM);
+        4:   95:	p->name = p->x.name = "wildcard";
+        4:   96:	p->x.wildcard = syms;
+        4:   97:	return p;
+        -:   98:}
+function mkauto called 0 returned 0% blocks executed 0%
+    #####:   99:void mkauto(Symbol p) {
+    #####:  100:	assert(p->sclass == AUTO);
+    #####:  101:	offset = roundup(offset + p->type->size, p->type->align);
+    #####:  102:	p->x.offset = -offset;
+    #####:  103:	p->x.name = stringd(-offset);
+        -:  104:}
+function blockbeg called 2 returned 100% blocks executed 100%
+        2:  105:void blockbeg(Env *e) {
+        2:  106:	e->offset = offset;
+        2:  107:	e->freemask[IREG] = freemask[IREG];
+        2:  108:	e->freemask[FREG] = freemask[FREG];
+        -:  109:}
+function blockend called 2 returned 100% blocks executed 67%
+        2:  110:void blockend(Env *e) {
+        2:  111:	if (offset > maxoffset)
+    #####:  112:		maxoffset = offset;
+        2:  113:	offset = e->offset;
+        2:  114:	freemask[IREG] = e->freemask[IREG];
+        2:  115:	freemask[FREG] = e->freemask[FREG];
+        -:  116:}
+function mkactual called 1 returned 100% blocks executed 100%
+        1:  117:int mkactual(int align, int size) {
+        1:  118:	int n = roundup(argoffset, align);
+        -:  119:
+        1:  120:	argoffset = n + size;
+        1:  121:	return n;
+        -:  122:}
+function docall called 1 returned 100% blocks executed 100%
+        1:  123:static void docall(Node p) {
+        1:  124:	p->syms[1] = p->syms[0];
+        1:  125:	p->syms[0] = intconst(argoffset);
+        1:  126:	if (argoffset > maxargoffset)
+        1:  127:		maxargoffset = argoffset;
+        1:  128:	argoffset = 0;
+        -:  129:}
+function blkcopy called 0 returned 0% blocks executed 0%
+    #####:  130:void blkcopy(int dreg, int doff, int sreg, int soff, int size, int tmp[]) {
+    #####:  131:	assert(size >= 0);
+    #####:  132:	if (size == 0)
+    #####:  133:		return;
+    #####:  134:	else if (size <= 2)
+    #####:  135:		blkunroll(size, dreg, doff, sreg, soff, size, tmp);
+    #####:  136:	else if (size == 3) {
+    #####:  137:		blkunroll(2, dreg, doff,   sreg, soff,   2, tmp);
+    #####:  138:		blkunroll(1, dreg, doff+2, sreg, soff+2, 1, tmp);
+        -:  139:	}
+    #####:  140:	else if (size <= 16) {
+    #####:  141:		blkunroll(4, dreg, doff, sreg, soff, size&~3, tmp);
+    #####:  142:		blkcopy(dreg, doff+(size&~3),
+        -:  143:	                sreg, soff+(size&~3), size&3, tmp);
+        -:  144:	}
+        -:  145:	else
+    #####:  146:		(*IR->x.blkloop)(dreg, doff, sreg, soff, size, tmp);
+        -:  147:}
+function blkunroll called 0 returned 0% blocks executed 0%
+    #####:  148:static void blkunroll(int k, int dreg, int doff, int sreg, int soff, int size, int tmp[]) {
+    #####:  149:	int i;
+        -:  150:
+    #####:  151:	assert(IR->x.max_unaligned_load);
+    #####:  152:	if (k > IR->x.max_unaligned_load
+        -:  153:	&& (k > salign || k > dalign))
+    #####:  154:		k = IR->x.max_unaligned_load;
+    #####:  155:	for (i = 0; i+k < size; i += 2*k) {
+    #####:  156:		(*IR->x.blkfetch)(k, soff+i,   sreg, tmp[0]);
+    #####:  157:		(*IR->x.blkfetch)(k, soff+i+k, sreg, tmp[1]);
+    #####:  158:		(*IR->x.blkstore)(k, doff+i,   dreg, tmp[0]);
+    #####:  159:		(*IR->x.blkstore)(k, doff+i+k, dreg, tmp[1]);
+        -:  160:	}
+    #####:  161:	if (i < size) {
+    #####:  162:		(*IR->x.blkfetch)(k, i+soff, sreg, tmp[0]);
+    #####:  163:		(*IR->x.blkstore)(k, i+doff, dreg, tmp[0]);
+        -:  164:	}
+        -:  165:}
+function parseflags called 1 returned 100% blocks executed 75%
+        1:  166:void parseflags(int argc, char *argv[]) {
+        1:  167:	int i;
+        -:  168:
+        7:  169:	for (i = 0; i < argc; i++)
+        6:  170:		if (strcmp(argv[i], "-d") == 0)
+    #####:  171:			dflag = 1;
+        6:  172:		else if (strcmp(argv[i], "-b") == 0)	/* omit */
+    #####:  173:			bflag = 1;			/* omit */
+        -:  174:}
+function getrule called 43 returned 100% blocks executed 50%
+       43:  175:static int getrule(Node p, int nt) {
+       43:  176:	int rulenum;
+        -:  177:
+       43:  178:	assert(p);
+       43:  179:	rulenum = (*IR->x._rule)(p->x.state, nt);
+       43:  180:	if (!rulenum) {
+    #####:  181:		fprint(stderr, "(%x->op=%s at %w is corrupt.)\n", p, opname(p->op), &src);
+    #####:  182:		assert(0);
+        -:  183:	}
+       43:  184:	return rulenum;
+        -:  185:}
+function reduce called 22 returned 100% blocks executed 67%
+       22:  186:static void reduce(Node p, int nt) {
+       22:  187:	int rulenum, i;
+       22:  188:	short *nts;
+       22:  189:	Node kids[10];
+        -:  190:
+       22:  191:	p = reuse(p, nt);
+       22:  192:	rulenum = getrule(p, nt);
+       22:  193:	nts = IR->x._nts[rulenum];
+       22:  194:	(*IR->x._kids)(p, rulenum, kids);
+       38:  195:	for (i = 0; nts[i]; i++)
+       16:  196:		reduce(kids[i], nts[i]);
+       22:  197:	if (IR->x._isinstruction[rulenum]) {
+        7:  198:		assert(p->x.inst == 0 || p->x.inst == nt);
+        7:  199:		p->x.inst = nt;
+        7:  200:		if (p->syms[RX] && p->syms[RX]->temporary) {
+    #####:  201:			debug(fprint(stderr, "(using %s)\n", p->syms[RX]->name));
+    #####:  202:			p->syms[RX]->x.usecount++;
+        -:  203:		}
+        -:  204:	}
+        -:  205:}
+function reuse called 42 returned 100% blocks executed 50%
+       42:  206:static Node reuse(Node p, int nt) {
+        -:  207:	struct _state {
+        -:  208:		short cost[1];
+        -:  209:	};
+       42:  210:	Symbol r = p->syms[RX];
+        -:  211:
+       42:  212:	if (generic(p->op) == INDIR && p->kids[0]->op == VREG+P
+        -:  213:	&& r->u.t.cse && p->x.mayrecalc
+        -:  214:	&& ((struct _state*)r->u.t.cse->x.state)->cost[nt] == 0)
+    #####:  215:		return r->u.t.cse;
+        -:  216:	else
+       42:  217:		return p;
+        -:  218:}
+        -:  219:
+function mayrecalc called 0 returned 0% blocks executed 0%
+    #####:  220:int mayrecalc(Node p) {
+    #####:  221:	int op;
+        -:  222:
+    #####:  223:	assert(p && p->syms[RX]);
+    #####:  224:	if (p->syms[RX]->u.t.cse == NULL)
+    #####:  225:		return 0;
+    #####:  226:	op = generic(p->syms[RX]->u.t.cse->op);
+    #####:  227:	if (op == CNST || op == ADDRF || op == ADDRG || op == ADDRL) {
+    #####:  228:		p->x.mayrecalc = 1;
+    #####:  229:		return 1;
+        -:  230:	} else
+    #####:  231:		return 0;
+        -:  232:}
+function prune called 34 returned 100% blocks executed 63%
+       34:  233:static Node *prune(Node p, Node pp[]) {
+       34:  234:	if (p == NULL)
+       20:  235:		return pp;
+       14:  236:	p->x.kids[0] = p->x.kids[1] = p->x.kids[2] = NULL;
+       14:  237:	if (p->x.inst == 0)
+        7:  238:		return prune(p->kids[1], prune(p->kids[0], pp));
+        7:  239:	else if (p->syms[RX] && p->syms[RX]->temporary
+        -:  240:	&& p->syms[RX]->x.usecount < 2) {
+    #####:  241:		p->x.inst = 0;
+    #####:  242:		debug(fprint(stderr, "(clobbering %s)\n", p->syms[RX]->name));
+    #####:  243:		return prune(p->kids[1], prune(p->kids[0], pp));
+        -:  244:	}
+        -:  245:	else {
+        7:  246:		prune(p->kids[1], prune(p->kids[0], &p->x.kids[0]));
+        7:  247:		*pp = p;
+        7:  248:		return pp + 1;
+        -:  249:	}
+        -:  250:}
+        -:  251:
+        -:  252:#define ck(i) return (i) ? 0 : LBURG_MAX
+        -:  253:
+function range called 13 returned 100% blocks executed 45%
+       13:  254:int range(Node p, int lo, int hi) {
+       13:  255:	Symbol s = p->syms[0];
+        -:  256:
+       13:  257:	switch (specific(p->op)) {
+        -:  258:	case ADDRF+P:
+    #####:  259:	case ADDRL+P: ck(s->x.offset >= lo && s->x.offset <= hi);
+        5:  260:	case CNST+I:  ck(s->u.c.v.i  >= lo && s->u.c.v.i  <= hi);
+        8:  261:	case CNST+U:  ck(s->u.c.v.u  >= lo && s->u.c.v.u  <= hi);
+    #####:  262:	case CNST+P:  ck(s->u.c.v.p  == 0  && lo <= 0 && hi >= 0);
+        -:  263:	}
+    #####:  264:	return LBURG_MAX;
+        -:  265:}
+function dumptree called 0 returned 0% blocks executed 0%
+    #####:  266:static void dumptree(Node p) {
+    #####:  267:	if (p->op == VREG+P && p->syms[0]) {
+    #####:  268:		fprint(stderr, "VREGP(%s)", p->syms[0]->name);
+    #####:  269:		return;
+    #####:  270:	} else if (generic(p->op) == LOAD) {
+    #####:  271:		fprint(stderr, "LOAD(");
+    #####:  272:		dumptree(p->kids[0]);
+    #####:  273:		fprint(stderr, ")");
+    #####:  274:		return;
+        -:  275:	}
+    #####:  276:	fprint(stderr, "%s(", opname(p->op));
+    #####:  277:	switch (generic(p->op)) {
+        -:  278:	case CNST: case LABEL:
+        -:  279:	case ADDRG: case ADDRF: case ADDRL:
+    #####:  280:		if (p->syms[0])
+    #####:  281:			fprint(stderr, "%s", p->syms[0]->name);
+    #####:  282:		break;
+        -:  283:	case RET:
+    #####:  284:		if (p->kids[0])
+    #####:  285:			dumptree(p->kids[0]);
+    #####:  286:		break;
+        -:  287:	case CVF: case CVI: case CVP: case CVU: case JUMP: 
+        -:  288:	case ARG: case BCOM: case NEG: case INDIR:
+    #####:  289:		dumptree(p->kids[0]);
+    #####:  290:		break;
+        -:  291:	case CALL:
+    #####:  292:		if (optype(p->op) != B) {
+    #####:  293:			dumptree(p->kids[0]);
+    #####:  294:			break;
+        -:  295:		}
+        -:  296:		/* else fall thru */
+        -:  297:	case EQ: case NE: case GT: case GE: case LE: case LT:
+        -:  298:	case ASGN: case BOR: case BAND: case BXOR: case RSH: case LSH:
+        -:  299:	case ADD: case SUB:  case DIV: case MUL: case MOD:
+    #####:  300:		dumptree(p->kids[0]);
+    #####:  301:		fprint(stderr, ", ");
+    #####:  302:		dumptree(p->kids[1]);
+    #####:  303:		break;
+    #####:  304:	default: assert(0);
+        -:  305:	}
+    #####:  306:	fprint(stderr, ")");
+        -:  307:}
+function dumpcover called 0 returned 0% blocks executed 0%
+    #####:  308:static void dumpcover(Node p, int nt, int in) {
+    #####:  309:	int rulenum, i;
+    #####:  310:	short *nts;
+    #####:  311:	Node kids[10];
+        -:  312:
+    #####:  313:	p = reuse(p, nt);
+    #####:  314:	rulenum = getrule(p, nt);
+    #####:  315:	nts = IR->x._nts[rulenum];
+    #####:  316:	fprint(stderr, "dumpcover(%x) = ", p);
+    #####:  317:	for (i = 0; i < in; i++)
+    #####:  318:		fprint(stderr, " ");
+    #####:  319:	dumprule(rulenum);
+    #####:  320:	(*IR->x._kids)(p, rulenum, kids);
+    #####:  321:	for (i = 0; nts[i]; i++)
+    #####:  322:		dumpcover(kids[i], nts[i], in+1);
+        -:  323:}
+        -:  324:
+function dumprule called 0 returned 0% blocks executed 0%
+    #####:  325:static void dumprule(int rulenum) {
+    #####:  326:	assert(rulenum);
+    #####:  327:	fprint(stderr, "%s / %s", IR->x._string[rulenum],
+        -:  328:		IR->x._templates[rulenum]);
+    #####:  329:	if (!IR->x._isinstruction[rulenum])
+    #####:  330:		fprint(stderr, "\n");
+        -:  331:}
+function emitasm called 20 returned 100% blocks executed 74%
+       20:  332:static unsigned emitasm(Node p, int nt) {
+       20:  333:	int rulenum;
+       20:  334:	short *nts;
+       20:  335:	char *fmt;
+       20:  336:	Node kids[10];
+        -:  337:
+       20:  338:	p = reuse(p, nt);
+       20:  339:	rulenum = getrule(p, nt);
+       20:  340:	nts = IR->x._nts[rulenum];
+       20:  341:	fmt = IR->x._templates[rulenum];
+       20:  342:	assert(fmt);
+       20:  343:	if (IR->x._isinstruction[rulenum] && p->x.emitted)
+    #####:  344:		print("%s", p->syms[RX]->x.name);
+       20:  345:	else if (*fmt == '#')
+        1:  346:		(*IR->x.emit2)(p);
+        -:  347:	else {
+       19:  348:		if (*fmt == '?') {
+    #####:  349:			fmt++;
+    #####:  350:			assert(p->kids[0]);
+    #####:  351:			if (p->syms[RX] == p->x.kids[0]->syms[RX])
+    #####:  352:				while (*fmt++ != '\n')
+        -:  353:					;
+        -:  354:		}
+       92:  355:		for ((*IR->x._kids)(p, rulenum, kids); *fmt; fmt++)
+       73:  356:			if (*fmt != '%')
+       49:  357:				(void)putchar(*fmt);
+       24:  358:			else if (*++fmt == 'F')
+    #####:  359:				print("%d", framesize);
+       24:  360:			else if (*fmt >= '0' && *fmt <= '9')
+       13:  361:				emitasm(kids[*fmt - '0'], nts[*fmt - '0']);
+       11:  362:			else if (*fmt >= 'a' && *fmt < 'a' + NELEMS(p->syms))
+        9:  363:				fputs(p->syms[*fmt - 'a']->x.name, stdout);
+        -:  364:			else
+        2:  365:				(void)putchar(*fmt);
+        -:  366:	}
+       20:  367:	return 0;
+        -:  368:}
+function emit called 5 returned 100% blocks executed 75%
+       12:  369:void emit(Node p) {
+       19:  370:	for (; p; p = p->x.next) {
+        7:  371:		assert(p->x.registered);
+        7:  372:		if (p->x.equatable && requate(p) || moveself(p))
+        -:  373:			;
+        -:  374:		else
+        7:  375:			(*emitter)(p, p->x.inst);
+        7:  376:		p->x.emitted = 1;
+        -:  377:	}
+        -:  378:}
+function moveself called 7 returned 100% blocks executed 50%
+        7:  379:static int moveself(Node p) {
+        7:  380:	return p->x.copy
+        -:  381:	&& p->syms[RX]->x.name == p->x.kids[0]->syms[RX]->x.name;
+        -:  382:}
+function move called 0 returned 0% blocks executed 0%
+    #####:  383:int move(Node p) {
+    #####:  384:	p->x.copy = 1;
+    #####:  385:	return 1;
+        -:  386:}
+function requate called 0 returned 0% blocks executed 0%
+    #####:  387:static int requate(Node q) {
+    #####:  388:	Symbol src = q->x.kids[0]->syms[RX];
+    #####:  389:	Symbol tmp = q->syms[RX];
+    #####:  390:	Node p;
+    #####:  391:	int n = 0;
+        -:  392:
+    #####:  393:	debug(fprint(stderr, "(requate(%x): tmp=%s src=%s)\n", q, tmp->x.name, src->x.name));
+    #####:  394:	for (p = q->x.next; p; p = p->x.next)
+    #####:  395:		if (p->x.copy && p->syms[RX] == src
+        -:  396:		&&  p->x.kids[0]->syms[RX] == tmp)
+    #####:  397:			debug(fprint(stderr, "(requate arm 0 at %x)\n", p)),
+        -:  398:			p->syms[RX] = tmp;
+    #####:  399:		else if (setsrc(p->syms[RX]) && !moveself(p) && !readsreg(p))
+    #####:  400:			return 0;
+    #####:  401:		else if (p->x.spills)
+    #####:  402:			return 0;
+    #####:  403:		else if (generic(p->op) == CALL && p->x.next)
+    #####:  404:			return 0;
+    #####:  405:		else if (p->op == LABEL+V && p->x.next)
+    #####:  406:			return 0;
+    #####:  407:		else if (p->syms[RX] == tmp && readsreg(p))
+    #####:  408:			debug(fprint(stderr, "(requate arm 5 at %x)\n", p)),
+        -:  409:			n++;
+    #####:  410:		else if (p->syms[RX] == tmp)
+    #####:  411:			break;
+    #####:  412:	debug(fprint(stderr, "(requate arm 7 at %x)\n", p));
+    #####:  413:	assert(n > 0);
+    #####:  414:	for (p = q->x.next; p; p = p->x.next)
+    #####:  415:		if (p->syms[RX] == tmp && readsreg(p)) {
+    #####:  416:			p->syms[RX] = src;
+    #####:  417:			if (--n <= 0)
+    #####:  418:				break;
+        -:  419:		}
+    #####:  420:	return 1;
+        -:  421:}
+function prelabel called 34 returned 100% blocks executed 72%
+       34:  422:static void prelabel(Node p) {
+       34:  423:	if (p == NULL)
+       20:  424:		return;
+       14:  425:	prelabel(p->kids[0]);
+       14:  426:	prelabel(p->kids[1]);
+       14:  427:	if (NeedsReg[opindex(p->op)])
+        9:  428:		setreg(p, (*IR->x.rmap)(opkind(p->op)));
+       14:  429:	switch (generic(p->op)) {
+        -:  430:	case ADDRF: case ADDRL:
+        2:  431:		if (p->syms[0]->sclass == REGISTER)
+    #####:  432:			p->op = VREG+P;
+    #####:  433:		break;
+        -:  434:	case INDIR:
+        1:  435:		if (p->kids[0]->op == VREG+P)
+    #####:  436:			setreg(p, p->kids[0]->syms[0]);
+    #####:  437:		break;
+        -:  438:	case ASGN:
+        1:  439:		if (p->kids[0]->op == VREG+P)
+    #####:  440:			rtarget(p, 1, p->kids[0]->syms[0]);
+    #####:  441:		break;
+        -:  442:	case CVI: case CVU: case CVP:
+    #####:  443:		if (optype(p->op) != F
+        -:  444:		&&  opsize(p->op) <= p->syms[0]->u.c.v.i)
+    #####:  445:			p->op = LOAD + opkind(p->op);
+       14:  446:		break;
+        -:  447:	}
+       14:  448:	(IR->x.target)(p);
+        -:  449:}
+function setreg called 11 returned 100% blocks executed 100%
+       11:  450:void setreg(Node p, Symbol r) {
+       11:  451:	p->syms[RX] = r;
+        -:  452:}
+function rtarget called 1 returned 100% blocks executed 50%
+        1:  453:void rtarget(Node p, int n, Symbol r) {
+        1:  454:	Node q = p->kids[n];
+        -:  455:
+        1:  456:	assert(q);
+        1:  457:	assert(r);
+        1:  458:	assert(r->sclass == REGISTER || !r->x.wildcard);
+        1:  459:	assert(q->syms[RX]);
+        1:  460:	if (r != q->syms[RX] && !q->syms[RX]->x.wildcard) {
+    #####:  461:		q = newnode(LOAD + opkind(q->op),
+        -:  462:			q, NULL, q->syms[0]);
+    #####:  463:		if (r->u.t.cse == p->kids[n])
+    #####:  464:			r->u.t.cse = q;
+    #####:  465:		p->kids[n] = p->x.kids[n] = q;
+    #####:  466:		q->x.kids[0] = q->kids[0];
+        -:  467:	}
+        1:  468:	setreg(q, r);
+        1:  469:	debug(fprint(stderr, "(targeting %x->x.kids[%d]=%x to %s)\n", p, n, p->kids[n], r->x.name));
+        -:  470:}
+function rewrite called 6 returned 100% blocks executed 53%
+        6:  471:static void rewrite(Node p) {
+        6:  472:	assert(p->x.inst == 0);
+        6:  473:	prelabel(p);
+        6:  474:	debug(dumptree(p));
+        6:  475:	debug(fprint(stderr, "\n"));
+        6:  476:	(*IR->x._label)(p);
+        6:  477:	debug(dumpcover(p, 1, 0));
+        6:  478:	reduce(p, 1);
+        -:  479:}
+function gen called 5 returned 100% blocks executed 78%
+        5:  480:Node gen(Node forest) {
+        5:  481:	int i;
+        5:  482:	struct node sentinel;
+        5:  483:	Node dummy, p;
+        -:  484:
+        5:  485:	head = forest;
+       11:  486:	for (p = forest; p; p = p->link) {
+        6:  487:		assert(p->count == 0);
+        6:  488:		if (generic(p->op) == CALL)
+        1:  489:			docall(p);
+        5:  490:		else if (   generic(p->op) == ASGN
+        -:  491:		&& generic(p->kids[1]->op) == CALL)
+    #####:  492:			docall(p->kids[1]);
+        5:  493:		else if (generic(p->op) == ARG)
+        1:  494:			(*IR->x.doarg)(p);
+        6:  495:		rewrite(p);
+        6:  496:		p->x.listed = 1;
+        -:  497:	}
+       11:  498:	for (p = forest; p; p = p->link)
+        6:  499:		prune(p, &dummy);
+        5:  500:	relink(&sentinel, &sentinel);
+       11:  501:	for (p = forest; p; p = p->link)
+        6:  502:		linearize(p, &sentinel);
+        5:  503:	forest = sentinel.x.next;
+        5:  504:	assert(forest);
+        5:  505:	sentinel.x.next->x.prev = NULL;
+        5:  506:	sentinel.x.prev->x.next = NULL;
+       12:  507:	for (p = forest; p; p = p->x.next)
+        8:  508:		for (i = 0; i < NELEMS(p->x.kids) && p->x.kids[i]; i++) {
+        1:  509:			assert(p->x.kids[i]->syms[RX]);
+        1:  510:			if (p->x.kids[i]->syms[RX]->temporary) {
+    #####:  511:				p->x.kids[i]->x.prevuse =
+        -:  512:					p->x.kids[i]->syms[RX]->x.lastuse;
+    #####:  513:				p->x.kids[i]->syms[RX]->x.lastuse = p->x.kids[i];
+        -:  514:			}
+        -:  515:		}
+       12:  516:	for (p = forest; p; p = p->x.next) {
+        7:  517:		ralloc(p);
+        7:  518:		if (p->x.listed && NeedsReg[opindex(p->op)]
+        -:  519:		&& (*IR->x.rmap)(opkind(p->op))) {
+    #####:  520:			assert(generic(p->op) == CALL || generic(p->op) == LOAD);
+    #####:  521:			putreg(p->syms[RX]);
+        -:  522:		}
+        -:  523:	}
+        5:  524:	return forest;
+        -:  525:}
+function notarget called 0 returned 0% blocks executed 0%
+    #####:  526:int notarget(Node p) {
+    #####:  527:	return p->syms[RX]->x.wildcard ? 0 : LBURG_MAX;
+        -:  528:}
+function putreg called 1 returned 100% blocks executed 57%
+        1:  529:static void putreg(Symbol r) {
+        1:  530:	assert(r && r->x.regnode);
+        1:  531:	freemask[r->x.regnode->set] |= r->x.regnode->mask;
+        1:  532:	debug(dumpregs("(freeing %s)\n", r->x.name, NULL));
+        -:  533:}
+function askfixedreg called 1 returned 100% blocks executed 75%
+        1:  534:static Symbol askfixedreg(Symbol s) {
+        1:  535:	Regnode r = s->x.regnode;
+        1:  536:	int n = r->set;
+        -:  537:
+        1:  538:	if (r->mask&~freemask[n])
+    #####:  539:		return NULL;
+        -:  540:	else {
+        1:  541:		freemask[n] &= ~r->mask;
+        1:  542:		usedmask[n] |=  r->mask;
+        1:  543:		return s;
+        -:  544:	}
+        -:  545:}
+function askreg called 1 returned 100% blocks executed 31%
+        1:  546:static Symbol askreg(Symbol rs, unsigned rmask[]) {
+        1:  547:	int i;
+        -:  548:
+        1:  549:	if (rs->x.wildcard == NULL)
+        1:  550:		return askfixedreg(rs);
+    #####:  551:	for (i = 31; i >= 0; i--) {
+    #####:  552:		Symbol r = rs->x.wildcard[i];
+    #####:  553:		if (r != NULL
+        -:  554:		&& !(r->x.regnode->mask&~rmask[r->x.regnode->set])
+        -:  555:		&& askfixedreg(r))
+    #####:  556:			return r;
+        -:  557:	}
+    #####:  558:	return NULL;
+        -:  559:}
+        -:  560:
+function getreg called 1 returned 100% blocks executed 38%
+        1:  561:static Symbol getreg(Symbol s, unsigned mask[], Node p) {
+        1:  562:	Symbol r = askreg(s, mask);
+        1:  563:	if (r == NULL) {
+    #####:  564:		r = spillee(s, mask, p);
+    #####:  565:		assert(r && r->x.regnode);
+    #####:  566:		spill(r->x.regnode->mask, r->x.regnode->set, p);
+    #####:  567:		r = askreg(s, mask);
+        -:  568:	}
+        1:  569:	assert(r && r->x.regnode);
+        1:  570:	r->x.regnode->vbl = NULL;
+        1:  571:	return r;
+        -:  572:}
+function askregvar called 0 returned 0% blocks executed 0%
+    #####:  573:int askregvar(Symbol p, Symbol regs) {
+    #####:  574:	Symbol r;
+        -:  575:
+    #####:  576:	assert(p);
+    #####:  577:	if (p->sclass != REGISTER)
+    #####:  578:		return 0;
+    #####:  579:	else if (!isscalar(p->type)) {
+    #####:  580:		p->sclass = AUTO;
+    #####:  581:		return 0;
+        -:  582:	}
+    #####:  583:	else if (p->temporary) {
+    #####:  584:		p->x.name = "?";
+    #####:  585:		return 1;
+        -:  586:	}
+    #####:  587:	else if ((r = askreg(regs, vmask)) != NULL) {
+    #####:  588:		p->x.regnode = r->x.regnode;
+    #####:  589:		p->x.regnode->vbl = p;
+    #####:  590:		p->x.name = r->x.name;
+    #####:  591:		debug(dumpregs("(allocating %s to symbol %s)\n", p->x.name, p->name));
+    #####:  592:		return 1;
+        -:  593:	}
+        -:  594:	else {
+    #####:  595:		p->sclass = AUTO;
+    #####:  596:		return 0;
+        -:  597:	}
+        -:  598:}
+function linearize called 7 returned 100% blocks executed 78%
+        7:  599:static void linearize(Node p, Node next) {
+        7:  600:	int i;
+        -:  601:
+        8:  602:	for (i = 0; i < NELEMS(p->x.kids) && p->x.kids[i]; i++)
+        1:  603:		linearize(p->x.kids[i], next);
+        7:  604:	relink(next->x.prev, p);
+        7:  605:	relink(p, next);
+        7:  606:	debug(fprint(stderr, "(listing %x)\n", p));
+        -:  607:}
+function ralloc called 7 returned 100% blocks executed 50%
+        7:  608:static void ralloc(Node p) {
+        7:  609:	int i;
+        7:  610:	unsigned mask[2];
+        -:  611:
+        7:  612:	mask[0] = tmask[0];
+        7:  613:	mask[1] = tmask[1];
+        7:  614:	assert(p);
+        7:  615:	debug(fprint(stderr, "(rallocing %x)\n", p));
+        8:  616:	for (i = 0; i < NELEMS(p->x.kids) && p->x.kids[i]; i++) {
+        1:  617:		Node kid = p->x.kids[i];
+        1:  618:		Symbol r = kid->syms[RX];
+        1:  619:		assert(r && kid->x.registered);
+        1:  620:		if (r->sclass != REGISTER && r->x.lastuse == kid)
+        1:  621:			putreg(r);
+        -:  622:	}
+        7:  623:	if (!p->x.registered && NeedsReg[opindex(p->op)]
+        -:  624:	&& (*IR->x.rmap)(opkind(p->op))) {
+        1:  625:		Symbol sym = p->syms[RX], set = sym;
+        1:  626:		assert(sym);
+        1:  627:		if (sym->temporary)
+    #####:  628:			set = (*IR->x.rmap)(opkind(p->op));
+        1:  629:		assert(set);
+        1:  630:		if (set->sclass != REGISTER) {
+        1:  631:			Symbol r;
+        1:  632:			if (*IR->x._templates[getrule(p, p->x.inst)] == '?')
+    #####:  633:				for (i = 1; i < NELEMS(p->x.kids) && p->x.kids[i]; i++) {
+    #####:  634:					Symbol r = p->x.kids[i]->syms[RX];
+    #####:  635:					assert(p->x.kids[i]->x.registered);
+    #####:  636:					assert(r && r->x.regnode);
+    #####:  637:					assert(sym->x.wildcard || sym != r);
+    #####:  638:					mask[r->x.regnode->set] &= ~r->x.regnode->mask;
+        -:  639:				}
+        1:  640:			r = getreg(set, mask, p);
+        1:  641:			if (sym->temporary) {
+    #####:  642:				Node q;
+    #####:  643:				r->x.lastuse = sym->x.lastuse;
+    #####:  644:				for (q = sym->x.lastuse; q; q = q->x.prevuse) {
+    #####:  645:					q->syms[RX] = r;
+    #####:  646:					q->x.registered = 1;
+    #####:  647:					if (sym->u.t.cse && q->x.copy)
+    #####:  648:						q->x.equatable = 1;
+        -:  649:				}
+        -:  650:			} else {
+        1:  651:				p->syms[RX] = r;
+        1:  652:				r->x.lastuse = p;
+        -:  653:			}
+        1:  654:			debug(dumpregs("(allocating %s to node %x)\n", r->x.name, (char *) p));
+        -:  655:		}
+        -:  656:	}
+        7:  657:	p->x.registered = 1;
+        7:  658:	(*IR->x.clobber)(p);
+        -:  659:}
+function spillee called 0 returned 0% blocks executed 0%
+    #####:  660:static Symbol spillee(Symbol set, unsigned mask[], Node here) {
+    #####:  661:	Symbol bestreg = NULL;
+    #####:  662:	int bestdist = -1, i;
+        -:  663:
+    #####:  664:	assert(set);
+    #####:  665:	if (!set->x.wildcard)
+    #####:  666:		bestreg = set;
+        -:  667:	else {
+    #####:  668:		for (i = 31; i >= 0; i--) {
+    #####:  669:			Symbol ri = set->x.wildcard[i];
+    #####:  670:			if (
+        -:  671:				ri != NULL &&
+        -:  672:				ri->x.lastuse &&
+        -:  673:				(ri->x.regnode->mask&tmask[ri->x.regnode->set]&mask[ri->x.regnode->set])
+        -:  674:			) {
+    #####:  675:				Regnode rn = ri->x.regnode;
+    #####:  676:				Node q = here;
+    #####:  677:				int dist = 0;
+    #####:  678:				for (; q && !uses(q, rn); q = q->x.next)
+    #####:  679:					dist++;
+    #####:  680:				if (q && dist > bestdist) {
+    #####:  681:					bestdist = dist;
+    #####:  682:					bestreg = ri;
+        -:  683:				}
+        -:  684:			}
+        -:  685:		}
+        -:  686:	}
+    #####:  687:	assert(bestreg); /* Must be able to spill something. Reconfigure the register allocator
+        -:  688:		to ensure that we can allocate a register for all nodes without spilling
+        -:  689:		the node's necessary input regs. */	
+    #####:  690:	assert(bestreg->x.regnode->vbl == NULL); /* Can't spill register variables because
+        -:  691:		the reload site might be in other blocks. Reconfigure the register allocator
+        -:  692:		to ensure that this register is never allocated to a variable. */
+    #####:  693:	return bestreg;
+        -:  694:}
+function uses called 0 returned 0% blocks executed 0%
+    #####:  695:static int uses(Node p, Regnode rn) {
+    #####:  696:	int i;
+        -:  697:
+    #####:  698:	for (i = 0; i < NELEMS(p->x.kids); i++)
+    #####:  699:		if (
+        -:  700:			p->x.kids[i] &&
+        -:  701:			p->x.kids[i]->x.registered &&
+        -:  702:			rn->set == p->x.kids[i]->syms[RX]->x.regnode->set &&
+        -:  703:			(rn->mask&p->x.kids[i]->syms[RX]->x.regnode->mask)
+        -:  704:		)
+    #####:  705:			return 1;
+    #####:  706:	return 0;
+        -:  707:}
+function spillr called 0 returned 0% blocks executed 0%
+    #####:  708:static void spillr(Symbol r, Node here) {
+    #####:  709:	int i;
+    #####:  710:	Symbol tmp;
+    #####:  711:	Node p = r->x.lastuse;
+    #####:  712:	assert(p);
+    #####:  713:	while (p->x.prevuse)
+    #####:  714:		assert(r == p->syms[RX]),
+        -:  715:		p = p->x.prevuse;
+    #####:  716:	assert(p->x.registered && !readsreg(p));
+    #####:  717:	tmp = newtemp(AUTO, optype(p->op), opsize(p->op));
+    #####:  718:	genspill(r, p, tmp);
+    #####:  719:	for (p = here->x.next; p; p = p->x.next)
+    #####:  720:		for (i = 0; i < NELEMS(p->x.kids) && p->x.kids[i]; i++) {
+    #####:  721:			Node k = p->x.kids[i];
+    #####:  722:			if (k->x.registered && k->syms[RX] == r)
+    #####:  723:				genreload(p, tmp, i);
+        -:  724:		}
+    #####:  725:	putreg(r);
+        -:  726:}
+function genspill called 0 returned 0% blocks executed 0%
+    #####:  727:static void genspill(Symbol r, Node last, Symbol tmp) {
+    #####:  728:	Node p, q;
+    #####:  729:	Symbol s;
+    #####:  730:	unsigned ty;
+        -:  731:
+    #####:  732:	debug(fprint(stderr, "(spilling %s to local %s)\n", r->x.name, tmp->x.name));
+    #####:  733:	debug(fprint(stderr, "(genspill: "));
+    #####:  734:	debug(dumptree(last));
+    #####:  735:	debug(fprint(stderr, ")\n"));
+    #####:  736:	ty = opkind(last->op);
+    #####:  737:	NEW0(s, FUNC);
+    #####:  738:	s->sclass = REGISTER;
+    #####:  739:	s->name = s->x.name = r->x.name;
+    #####:  740:	s->x.regnode = r->x.regnode;
+    #####:  741:	q = newnode(ADDRL+P + sizeop(IR->ptrmetric.size), NULL, NULL, s);
+    #####:  742:	q = newnode(INDIR + ty, q, NULL, NULL);
+    #####:  743:	p = newnode(ADDRL+P + sizeop(IR->ptrmetric.size), NULL, NULL, tmp);
+    #####:  744:	p = newnode(ASGN + ty, p, q, NULL);
+    #####:  745:	p->x.spills = 1;
+    #####:  746:	rewrite(p);
+    #####:  747:	prune(p, &q);
+    #####:  748:	q = last->x.next;
+    #####:  749:	linearize(p, q);
+    #####:  750:	for (p = last->x.next; p != q; p = p->x.next) {
+    #####:  751:		ralloc(p);
+    #####:  752:		assert(!p->x.listed || !NeedsReg[opindex(p->op)] || !(*IR->x.rmap)(opkind(p->op)));
+        -:  753:	}
+        -:  754:}
+        -:  755:
+function genreload called 0 returned 0% blocks executed 0%
+    #####:  756:static void genreload(Node p, Symbol tmp, int i) {
+    #####:  757:	Node q;
+    #####:  758:	int ty;
+        -:  759:
+    #####:  760:	debug(fprint(stderr, "(replacing %x with a reload from %s)\n", p->x.kids[i], tmp->x.name));
+    #####:  761:	debug(fprint(stderr, "(genreload: "));
+    #####:  762:	debug(dumptree(p->x.kids[i]));
+    #####:  763:	debug(fprint(stderr, ")\n"));
+    #####:  764:	ty = opkind(p->x.kids[i]->op);
+    #####:  765:	q = newnode(ADDRL+P + sizeop(IR->ptrmetric.size), NULL, NULL, tmp);
+    #####:  766:	p->x.kids[i] = newnode(INDIR + ty, q, NULL, NULL);
+    #####:  767:	rewrite(p->x.kids[i]);
+    #####:  768:	prune(p->x.kids[i], &q);
+    #####:  769:	reprune(&p->kids[1], reprune(&p->kids[0], 0, i, p), i, p);
+    #####:  770:	prune(p, &q);
+    #####:  771:	linearize(p->x.kids[i], p);
+        -:  772:}
+function reprune called 0 returned 0% blocks executed 0%
+    #####:  773:static int reprune(Node *pp, int k, int n, Node p) {
+    #####:  774:	struct node x, *q = *pp;
+        -:  775:
+    #####:  776:	if (q == NULL || k > n)
+    #####:  777:		return k;
+    #####:  778:	else if (q->x.inst == 0)
+    #####:  779:		return reprune(&q->kids[1],
+        -:  780:			reprune(&q->kids[0], k, n, p), n, p);
+    #####:  781:	if (k == n) {
+    #####:  782:		debug(fprint(stderr, "(reprune changes %x from %x to %x)\n", pp, *pp, p->x.kids[n]));
+    #####:  783:		*pp = p->x.kids[n];
+    #####:  784:		x = *p;
+    #####:  785:		(IR->x.target)(&x);
+        -:  786:	}
+    #####:  787:	return k + 1;
+        -:  788:}
+function spill called 1 returned 100% blocks executed 9%
+        1:  789:void spill(unsigned mask, int n, Node here) {
+        1:  790:	int i;
+        1:  791:	Node p;
+        -:  792:
+        1:  793:	here->x.spills = 1;
+        1:  794:	usedmask[n] |= mask;
+        1:  795:	if (mask&~freemask[n]) {
+        -:  796:
+    #####:  797:		assert( /* It makes no sense for a node to clobber() its target. */
+        -:  798:			here->x.registered == 0 || /* call isn't coming through clobber() */
+        -:  799:			here->syms[RX] == NULL ||
+        -:  800:			here->syms[RX]->x.regnode == NULL ||
+        -:  801:			here->syms[RX]->x.regnode->set != n ||
+        -:  802:			(here->syms[RX]->x.regnode->mask&mask) == 0
+        -:  803:		);
+        -:  804:
+    #####:  805:		for (p = here; p; p = p->x.next)
+    #####:  806:			for (i = 0; i < NELEMS(p->x.kids) && p->x.kids[i]; i++) {
+    #####:  807:				Symbol r = p->x.kids[i]->syms[RX];
+    #####:  808:				assert(r);
+    #####:  809:				if (p->x.kids[i]->x.registered && r->x.regnode->set == n
+        -:  810:				&& r->x.regnode->mask&mask)
+    #####:  811:					spillr(r, here);
+        -:  812:			}
+        -:  813:	}
+        -:  814:}
+function dumpregs called 0 returned 0% blocks executed 0%
+    #####:  815:static void dumpregs(char *msg, char *a, char *b) {
+    #####:  816:	fprint(stderr, msg, a, b);
+    #####:  817:	fprint(stderr, "(free[0]=%x)\n", freemask[0]);
+    #####:  818:	fprint(stderr, "(free[1]=%x)\n", freemask[1]);
+        -:  819:}
+        -:  820:
+function getregnum called 0 returned 0% blocks executed 0%
+    #####:  821:int getregnum(Node p) {
+    #####:  822:	assert(p && p->syms[RX] && p->syms[RX]->x.regnode);
+    #####:  823:	return p->syms[RX]->x.regnode->number;
+        -:  824:}
+        -:  825:
+        -:  826:
+function regloc called 0 returned 0% blocks executed 0%
+    #####:  827:unsigned regloc(Symbol p) {
+    #####:  828:	assert(p && p->sclass == REGISTER && p->sclass == REGISTER && p->x.regnode);
+    #####:  829:	return p->x.regnode->set<<8 | p->x.regnode->number;
+        -:  830:}
+        -:  831:

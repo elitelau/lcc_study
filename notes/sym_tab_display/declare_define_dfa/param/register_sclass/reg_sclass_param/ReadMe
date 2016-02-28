@@ -1,0 +1,3 @@
+if (glevel > 1) for (i = 0; callee[i]; i++) callee[i]->sclass = AUTO;
+
+change sclass here!!!

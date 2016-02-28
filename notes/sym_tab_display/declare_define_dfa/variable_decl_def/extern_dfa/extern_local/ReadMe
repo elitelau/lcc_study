@@ -1,0 +1,8 @@
+// test.c
+int f(void) {
+  extern int a;
+  return ++a;
+}
+-------------------
+a is added to `externals symbol table, with extern scope.
+a.defined=0 & a.ref=1.0 since it's visited by "++a;" statement

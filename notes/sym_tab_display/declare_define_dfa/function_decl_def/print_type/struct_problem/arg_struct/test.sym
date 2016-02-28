@@ -1,0 +1,54 @@
+-----------------start a function definition----------------
+   ++++++ LOCAL+1 identifier symbols ++++++
+   ++++++ LOCAL+1 type symbols ++++++
+
+   ++++++ LOCAL identifier symbols ++++++
+   avg_score: [register][defined=1][ref=12.0] |  | float
+   i: [register][defined=1][ref=31.0] |  | int
+   ++++++ LOCAL type symbols ++++++
+
+
+   [function defn] float get_average_score_2(struct Student) oldstyle
+   [function callee] {struct Student a}
+   [function caller] {struct Student a}
+-------------------end a function definition----------------
+
+
+
+
+--------------------------- external symbols -----------------------------------
+
+------------------------- global symbols --------------------------------
+   get_average_score_2: [defined=1][oldstyle][ref=0.0] | float get_average_score_2(struct Student) | float func(struct Student)
+   get_average_score: [defined=0][newstyle][ref=0.0] | float get_average_score(struct Student) | float func(struct Student)
+
+--------------------------- constant symbols -----------------------------------
+   5: [static][defined=1][ref=0.0] | static int 5 | int
+   1: [static][defined=1][ref=0.0] | static int 1 | int
+   5: [static][defined=1][ref=0.0] | static float 5 | float
+   2: [static][defined=1][ref=0.0] | static int 2 | int
+   0: [static][defined=1][ref=0.0] | static float 0 | float
+   4: [static][defined=1][ref=0.0] | static int 4 | int
+   0: [static][defined=1][ref=0.0] | static int 0 | int
+
+--------------------------- types symbols --------------------------------------
+   Student: [defined=1][ref=0.0] |  | struct Student
+   T*: [defined=0][ref=0.0] | 
+   void: [defined=0][ref=0.0] |  | void
+   unsigned long long: [defined=0][ref=0.0] |  | unsigned long long
+   unsigned int: [defined=0][ref=0.0] |  | unsigned int
+   unsigned short: [defined=0][ref=0.0] |  | unsigned short
+   unsigned long: [defined=0][ref=0.0] |  | unsigned long
+   unsigned char: [defined=0][ref=0.0] |  | unsigned char
+   signed char: [defined=0][ref=0.0] |  | signed char
+   short: [defined=0][ref=0.0] |  | short
+   long long int: [defined=0][ref=0.0] |  | long long int
+   long int: [defined=0][ref=0.0] |  | long int
+   long double: [defined=0][addressed][ref=0.0] |  | long double
+   int: [defined=0][ref=0.0] |  | int
+   float: [defined=0][addressed][ref=0.0] |  | float
+   double: [defined=0][addressed][ref=0.0] |  | double
+   char: [defined=0][ref=0.0] |  | char
+
+--------------------------- labels symbols -------------------------------------
+-------------------------------------------------------------------------------

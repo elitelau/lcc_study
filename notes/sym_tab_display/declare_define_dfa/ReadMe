@@ -1,0 +1,5 @@
+the dfa diagram can be seen in notebook, 19.1 item for ch11
+
+1. dfa for global variable declaration & definition
+2. dfa for function declaration & definition, esp old-style, new-style problems.
+3. dfa for local variable declartion & definition

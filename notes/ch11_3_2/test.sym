@@ -1,0 +1,38 @@
+--------------------------- external symbols -----------------------------------
+
+------------------------- global symbols --------------------------------
+   f: [defined=0][newstyle][ref=0.0] | int f(int (*)(int, int), int, int); | int func(ptr->int func(int,int),int,int)
+   act_constants: [typedef][defined=0][ref=0.0] | act_constants act_constants; | enum act_constants
+   DIV: [defined=0][ref=0.0] |  | enum act_constants
+   MUL: [defined=0][ref=0.0] |  | enum act_constants
+   MINUS: [defined=0][ref=0.0] |  | enum act_constants
+   ADD: [defined=0][ref=0.0] |  | enum act_constants
+   pf: [typedef][defined=0][ref=0.0] | pf pf; | ptr->int func(int,int)
+   divide: [defined=1][newstyle][ref=0.0] | int divide(int, int); | int func(int,int)
+   multiple: [defined=1][newstyle][ref=0.0] | int multiple(int, int); | int func(int,int)
+   minus: [defined=1][newstyle][ref=0.0] | int minus(int, int); | int func(int,int)
+   add: [defined=1][newstyle][ref=0.0] | int add(int, int); | int func(int,int)
+
+--------------------------- constant symbols -----------------------------------
+
+--------------------------- types symbols --------------------------------------
+   act_constants: [defined=1][ref=0.0] |  | enum act_constants
+   T*: [defined=0][ref=0.0] | 
+   void: [defined=0][ref=0.0] |  | void
+   unsigned long long: [defined=0][ref=0.0] |  | unsigned long long
+   unsigned int: [defined=0][ref=0.0] |  | unsigned int
+   unsigned short: [defined=0][ref=0.0] |  | unsigned short
+   unsigned long: [defined=0][ref=0.0] |  | unsigned long
+   unsigned char: [defined=0][ref=0.0] |  | unsigned char
+   signed char: [defined=0][ref=0.0] |  | signed char
+   short: [defined=0][ref=0.0] |  | short
+   long long int: [defined=0][ref=0.0] |  | long long int
+   long int: [defined=0][ref=0.0] |  | long int
+   long double: [defined=0][addressed][ref=0.0] |  | long double
+   int: [defined=0][ref=0.0] |  | int
+   float: [defined=0][addressed][ref=0.0] |  | float
+   double: [defined=0][addressed][ref=0.0] |  | double
+   char: [defined=0][ref=0.0] |  | char
+
+--------------------------- labels symbols -------------------------------------
+-------------------------------------------------------------------------------

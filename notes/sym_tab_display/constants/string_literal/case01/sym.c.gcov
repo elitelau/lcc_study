@@ -1,0 +1,346 @@
+        -:    0:Source:src/sym.c
+        -:    0:Graph:lcc/sym.gcno
+        -:    0:Data:lcc/sym.gcda
+        -:    0:Runs:1
+        -:    0:Programs:1
+        -:    1:#include "c.h"
+        -:    2:#include <stdio.h>
+        -:    3:
+        -:    4:static char rcsid[] = "$Id: sym.nw,v 2.17 1997/12/17 23:59:12 drh Exp $";
+        -:    5:
+        -:    6:#define equalp(x) v.x == p->sym.u.c.v.x
+        -:    7:
+        -:    8:struct table {
+        -:    9:	int level;
+        -:   10:	Table previous;
+        -:   11:	struct entry {
+        -:   12:		struct symbol sym;
+        -:   13:		struct entry *link;
+        -:   14:	} *buckets[256];
+        -:   15:	Symbol all;
+        -:   16:};
+        -:   17:#define HASHSIZE NELEMS(((Table)0)->buckets)
+        -:   18:static struct table
+        -:   19:	cns = { CONSTANTS },
+        -:   20:	ext = { GLOBAL },
+        -:   21:	ids = { GLOBAL },
+        -:   22:	tys = { GLOBAL };
+        -:   23:Table constants   = &cns;
+        -:   24:Table externals   = &ext;
+        -:   25:Table identifiers = &ids;
+        -:   26:Table globals     = &ids;
+        -:   27:Table types       = &tys;
+        -:   28:Table labels;
+        -:   29:int level = GLOBAL;
+        -:   30:static int tempid;
+        -:   31:List loci, symbols;
+        -:   32:
+function table called 2 returned 100% blocks executed 80%
+        2:   33:Table table(Table tp, int level) {
+        2:   34:	Table new;
+        -:   35:
+        2:   36:	NEW0(new, FUNC);
+        2:   37:	new->previous = tp;
+        2:   38:	new->level = level;
+        2:   39:	if (tp)
+    #####:   40:		new->all = tp->all;
+        2:   41:	return new;
+        -:   42:}
+function foreach called 12 returned 100% blocks executed 86%
+       12:   43:void foreach(Table tp, int lev, void (*apply)(Symbol, void *), void *cl) {
+       12:   44:	assert(tp);
+       12:   45:	while (tp && tp->level > lev)
+    #####:   46:		tp = tp->previous;
+       12:   47:	if (tp && tp->level == lev) {
+        9:   48:		Symbol p;
+        9:   49:		Coordinate sav;
+        9:   50:		sav = src;
+       35:   51:		for (p = tp->all; p && p->scope == lev; p = p->up) {
+       26:   52:			src = p->src;
+       26:   53:			(*apply)(p, cl);
+        -:   54:		}
+        9:   55:		src = sav;
+        -:   56:	}
+        -:   57:}
+function enterscope called 3 returned 100% blocks executed 100%
+        3:   58:void enterscope(void) {
+        -:   59:    // print "enter function ..."
+        -:   60:    // print "entering scope ..."
+        3:   61:	if (++level == LOCAL)
+        1:   62:		tempid = 0;
+        -:   63:}
+function exitscope called 3 returned 100% blocks executed 31%
+        3:   64:void exitscope(void) {
+        -:   65:    // print "exit function"
+        -:   66:    // print added symbols for types and identifiers
+        3:   67:	rmtypes(level);
+        3:   68:	if (types->level == level)
+    #####:   69:		types = types->previous;
+        3:   70:	if (identifiers->level == level) {
+    #####:   71:		if (Aflag >= 2) {
+    #####:   72:			int n = 0;
+    #####:   73:			Symbol p;
+    #####:   74:			for (p = identifiers->all; p && p->scope == level; p = p->up)
+    #####:   75:				if (++n > 127) {
+    #####:   76:					warning("more than 127 identifiers declared in a block\n");
+    #####:   77:					break;
+        -:   78:				}
+        -:   79:		}
+    #####:   80:		identifiers = identifiers->previous;
+        -:   81:	}
+        3:   82:	assert(level >= GLOBAL);
+        3:   83:	--level;
+        -:   84:}
+function install called 18 returned 100% blocks executed 70%
+       18:   85:Symbol install(const char *name, Table *tpp, int level, int arena) {
+       18:   86:	Table tp = *tpp;
+       18:   87:	struct entry *p;
+       18:   88:	unsigned h = (unsigned long)name&(HASHSIZE-1);
+        -:   89:
+       18:   90:	assert(level == 0 || level >= tp->level);
+       18:   91:	if (level > 0 && tp->level < level)
+    #####:   92:		tp = *tpp = table(tp, level);
+       18:   93:	NEW0(p, arena);
+       18:   94:	p->sym.name = (char *)name;
+       18:   95:	p->sym.scope = level;
+       18:   96:	p->sym.up = tp->all;
+       18:   97:	tp->all = &p->sym;
+       18:   98:	p->link = tp->buckets[h];
+       18:   99:	tp->buckets[h] = p;
+       18:  100:	return &p->sym;
+        -:  101:}
+function relocate called 0 returned 0% blocks executed 0%
+    #####:  102:Symbol relocate(const char *name, Table src, Table dst) {
+    #####:  103:	struct entry *p, **q;
+    #####:  104:	Symbol *r;
+    #####:  105:	unsigned h = (unsigned long)name&(HASHSIZE-1);
+        -:  106:
+    #####:  107:	for (q = &src->buckets[h]; *q; q = &(*q)->link)
+    #####:  108:		if (name == (*q)->sym.name)
+    #####:  109:			break;
+    #####:  110:	assert(*q);
+        -:  111:	/*
+        -:  112:	 Remove the entry from src's hash chain
+        -:  113:	  and from its list of all symbols.
+        -:  114:	*/
+    #####:  115:	p = *q;
+    #####:  116:	*q = (*q)->link;
+    #####:  117:	for (r = &src->all; *r && *r != &p->sym; r = &(*r)->up)
+        -:  118:		;
+    #####:  119:	assert(*r == &p->sym);
+    #####:  120:	*r = p->sym.up;
+        -:  121:	/*
+        -:  122:	 Insert the entry into dst's hash chain
+        -:  123:	  and into its list of all symbols.
+        -:  124:	  Return the symbol-table entry.
+        -:  125:	*/
+    #####:  126:	p->link = dst->buckets[h];
+    #####:  127:	dst->buckets[h] = p;
+    #####:  128:	p->sym.up = dst->all;
+    #####:  129:	dst->all = &p->sym;
+    #####:  130:	return &p->sym;
+        -:  131:}
+function lookup called 8 returned 100% blocks executed 55%
+        8:  132:Symbol lookup(const char *name, Table tp) {
+        8:  133:	struct entry *p;
+        8:  134:	unsigned h = (unsigned long)name&(HASHSIZE-1);
+        -:  135:
+        8:  136:	assert(tp);
+        8:  137:	do
+        8:  138:		for (p = tp->buckets[h]; p; p = p->link)
+    #####:  139:			if (name == p->sym.name)
+    #####:  140:				return &p->sym;
+        -:  141:	while ((tp = tp->previous) != NULL);
+        8:  142:	return NULL;
+        -:  143:}
+function genlabel called 3 returned 100% blocks executed 100%
+        3:  144:int genlabel(int n) {
+        3:  145:	static int label = 1;
+        -:  146:
+        3:  147:	label += n;
+        3:  148:	return label - n;
+        -:  149:}
+function findlabel called 3 returned 100% blocks executed 91%
+        3:  150:Symbol findlabel(int lab) {
+        3:  151:	struct entry *p;
+        3:  152:	unsigned h = lab&(HASHSIZE-1);
+        -:  153:
+        3:  154:	for (p = labels->buckets[h]; p; p = p->link)
+        2:  155:		if (lab == p->sym.u.l.label)
+        2:  156:			return &p->sym;
+        1:  157:	NEW0(p, FUNC);
+        1:  158:	p->sym.name = stringd(lab);
+        1:  159:	p->sym.scope = LABELS;
+        1:  160:	p->sym.up = labels->all;
+        1:  161:	labels->all = &p->sym;
+        1:  162:	p->link = labels->buckets[h];
+        1:  163:	labels->buckets[h] = p;
+        1:  164:	p->sym.generated = 1;
+        1:  165:	p->sym.u.l.label = lab;
+        1:  166:	(*IR->defsymbol)(&p->sym);
+        1:  167:	return &p->sym;
+        -:  168:}
+function constant called 2 returned 100% blocks executed 42%
+        2:  169:Symbol constant(Type ty, Value v) {
+        2:  170:	struct entry *p;
+        2:  171:	unsigned h = v.u&(HASHSIZE-1);
+        -:  172:
+        2:  173:	ty = unqual(ty);
+        2:  174:	for (p = constants->buckets[h]; p; p = p->link)
+    #####:  175:		if (eqtype(ty, p->sym.type, 1))
+    #####:  176:			switch (ty->op) {
+    #####:  177:			case INT:      if (equalp(i)) return &p->sym; break;
+    #####:  178:			case UNSIGNED: if (equalp(u)) return &p->sym; break;
+    #####:  179:			case FLOAT:    if (equalp(d)) return &p->sym; break;
+    #####:  180:			case FUNCTION: if (equalp(g)) return &p->sym; break;
+        -:  181:			case ARRAY:
+    #####:  182:			case POINTER:  if (equalp(p)) return &p->sym; break;
+    #####:  183:			default: assert(0);
+        -:  184:			}
+        2:  185:	NEW0(p, PERM);
+        2:  186:	p->sym.name = vtoa(ty, v);
+        2:  187:	p->sym.scope = CONSTANTS;
+        2:  188:	p->sym.type = ty;
+        2:  189:	p->sym.sclass = STATIC;
+        2:  190:	p->sym.u.c.v = v;
+        2:  191:	p->link = constants->buckets[h];
+        2:  192:	p->sym.up = constants->all;
+        2:  193:	constants->all = &p->sym;
+        2:  194:	constants->buckets[h] = p;
+        2:  195:	if (ty->u.sym && !ty->u.sym->addressed)
+        1:  196:		(*IR->defsymbol)(&p->sym);
+        2:  197:	p->sym.defined = 1;
+        2:  198:	return &p->sym;
+        -:  199:}
+function intconst called 0 returned 0% blocks executed 0%
+    #####:  200:Symbol intconst(int n) {
+    #####:  201:	Value v;
+        -:  202:
+    #####:  203:	v.i = n;
+    #####:  204:	return constant(inttype, v);
+        -:  205:}
+function genident called 1 returned 100% blocks executed 100%
+        1:  206:Symbol genident(int scls, Type ty, int lev) {
+        1:  207:	Symbol p;
+        -:  208:
+        1:  209:	NEW0(p, lev >= LOCAL ? FUNC : PERM);
+        1:  210:	p->name = stringd(genlabel(1));
+        1:  211:	p->scope = lev;
+        1:  212:	p->sclass = scls;
+        1:  213:	p->type = ty;
+        1:  214:	p->generated = 1;
+        1:  215:	if (lev == GLOBAL)
+        1:  216:		(*IR->defsymbol)(p);
+        1:  217:	return p;
+        -:  218:}
+        -:  219:
+function temporary called 0 returned 0% blocks executed 0%
+    #####:  220:Symbol temporary(int scls, Type ty) {
+    #####:  221:	Symbol p;
+        -:  222:
+    #####:  223:	NEW0(p, FUNC);
+    #####:  224:	p->name = stringd(++tempid);
+    #####:  225:	p->scope = level < LOCAL ? LOCAL : level;
+    #####:  226:	p->sclass = scls;
+    #####:  227:	p->type = ty;
+    #####:  228:	p->temporary = 1;
+    #####:  229:	p->generated = 1;
+    #####:  230:	return p;
+        -:  231:}
+function newtemp called 0 returned 0% blocks executed 0%
+    #####:  232:Symbol newtemp(int sclass, int tc, int size) {
+    #####:  233:	Symbol p = temporary(sclass, btot(tc, size));
+        -:  234:
+    #####:  235:	(*IR->local)(p);
+    #####:  236:	p->defined = 1;
+    #####:  237:	return p;
+        -:  238:}
+        -:  239:
+function allsymbols called 0 returned 0% blocks executed 0%
+    #####:  240:Symbol allsymbols(Table tp) {
+    #####:  241:	return tp->all;
+        -:  242:}
+        -:  243:
+function locus called 0 returned 0% blocks executed 0%
+    #####:  244:void locus(Table tp, Coordinate *cp) {
+    #####:  245:	loci    = append(cp, loci);
+    #####:  246:	symbols = append(allsymbols(tp), symbols);
+        -:  247:}
+        -:  248:
+function use called 0 returned 0% blocks executed 0%
+    #####:  249:void use(Symbol p, Coordinate src) {
+    #####:  250:	Coordinate *cp;
+        -:  251:
+    #####:  252:	NEW(cp, PERM);
+    #####:  253:	*cp = src;
+    #####:  254:	p->uses = append(cp, p->uses);
+        -:  255:}
+        -:  256:/* findtype - find type ty in identifiers */
+function findtype called 2 returned 100% blocks executed 80%
+        2:  257:Symbol findtype(Type ty) {
+        2:  258:	Table tp = identifiers;
+        2:  259:	int i;
+        2:  260:	struct entry *p;
+        -:  261:
+        2:  262:	assert(tp);
+        2:  263:	do
+      514:  264:		for (i = 0; i < HASHSIZE; i++)
+      516:  265:			for (p = tp->buckets[i]; p; p = p->link)
+        4:  266:				if (p->sym.type == ty && p->sym.sclass == TYPEDEF)
+    #####:  267:					return &p->sym;
+        -:  268:	while ((tp = tp->previous) != NULL);
+        2:  269:	return NULL;
+        -:  270:}
+        -:  271:
+        -:  272:/* mkstr - make a string constant */
+function mkstr called 0 returned 0% blocks executed 0%
+    #####:  273:Symbol mkstr(char *str) {
+    #####:  274:	Value v;
+    #####:  275:	Symbol p;
+        -:  276:
+    #####:  277:	v.p = str;
+    #####:  278:	p = constant(array(chartype, strlen(v.p) + 1, 0), v);
+    #####:  279:	if (p->u.c.loc == NULL)
+    #####:  280:		p->u.c.loc = genident(STATIC, p->type, GLOBAL);
+    #####:  281:	return p;
+        -:  282:}
+        -:  283:
+        -:  284:/* mksymbol - make a symbol for name, install in &globals if sclass==EXTERN */
+function mksymbol called 0 returned 0% blocks executed 0%
+    #####:  285:Symbol mksymbol(int sclass, const char *name, Type ty) {
+    #####:  286:	Symbol p;
+        -:  287:
+    #####:  288:	if (sclass == EXTERN)
+    #####:  289:		p = install(string(name), &globals, GLOBAL, PERM);
+        -:  290:	else {
+    #####:  291:		NEW0(p, PERM);
+    #####:  292:		p->name = string(name);
+    #####:  293:		p->scope = GLOBAL;
+        -:  294:	}
+    #####:  295:	p->sclass = sclass;
+    #####:  296:	p->type = ty;
+    #####:  297:	(*IR->defsymbol)(p);
+    #####:  298:	p->defined = 1;
+    #####:  299:	return p;
+        -:  300:}
+        -:  301:
+        -:  302:/* vtoa - return string for the constant v of type ty */
+function vtoa called 2 returned 100% blocks executed 33%
+        2:  303:char *vtoa(Type ty, Value v) {
+        2:  304:	char buf[50];
+        -:  305:
+        2:  306:	ty = unqual(ty);
+        2:  307:	switch (ty->op) {
+        1:  308:	case INT:      return stringd(v.i);
+    #####:  309:	case UNSIGNED: return stringf((v.u&~0x7FFF) ? "0x%X" : "%U", v.u);
+    #####:  310:	case FLOAT:    return stringf("%g", (double)v.d);
+        -:  311:	case ARRAY:
+        1:  312:		if (ty->type == chartype || ty->type == signedchar
+        -:  313:		||  ty->type == unsignedchar)
+        1:  314:			return v.p;
+    #####:  315:		return stringf("%p", v.p);
+    #####:  316:	case POINTER:  return stringf("%p", v.p);
+    #####:  317:	case FUNCTION: return stringf("%p", v.g);
+        -:  318:	}
+    #####:  319:	assert(0); return NULL;
+        -:  320:}

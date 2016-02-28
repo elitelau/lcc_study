@@ -1,0 +1,52 @@
+-----------------start a function definition----------------
+   ++++++ LOCAL identifier symbols ++++++
+   assert: [extern][defined=0][addressed][oldstyle][ref=0.0] | extern int assert() | int func
+   ++++++ LOCAL type symbols ++++++
+
+
+   [function defn] struct Student get_s_by_id_2(int) oldstyle
+   [function callee] {struct Student *4, int id}
+   [function caller] {struct Student *4, int id}
+-------------------end a function definition----------------
+
+
+
+
+--------------------------- external symbols -----------------------------------
+   assert: [extern][defined=0][oldstyle][ref=1.0] | extern int assert() | int func
+
+------------------------- global symbols --------------------------------
+   get_s_by_id_2: [defined=1][oldstyle][ref=0.0] | struct Student get_s_by_id_2(int) | struct Student func(int)
+   get_s_by_id: [defined=0][newstyle][ref=0.0] | struct Student get_s_by_id(int) | struct Student func(int)
+   stu: [defined=1][ref=1.0] | struct Student stu[2] | array (2*12:4) of struct Student
+
+--------------------------- constant symbols -----------------------------------
+   12: [static][defined=1][ref=0.0] | static int 12 | int
+   4: [static][defined=1][ref=0.0] | static int 4 | int
+   1: [static][defined=1][ref=0.0] | static int 1 | int
+   2: [static][defined=1][ref=0.0] | static int 2 | int
+   0: [static][defined=1][ref=0.0] | static int 0 | int
+   jane: [static][defined=1][ref=0.0] | static char jane[5] | array (5*1:1) of char
+   lily: [static][defined=1][ref=0.0] | static char lily[5] | array (5*1:1) of char
+
+--------------------------- types symbols --------------------------------------
+   Student: [defined=1][ref=0.0] |  | struct Student
+   T*: [defined=0][ref=0.0] | 
+   void: [defined=0][ref=0.0] |  | void
+   unsigned long long: [defined=0][ref=0.0] |  | unsigned long long
+   unsigned int: [defined=0][ref=0.0] |  | unsigned int
+   unsigned short: [defined=0][ref=0.0] |  | unsigned short
+   unsigned long: [defined=0][ref=0.0] |  | unsigned long
+   unsigned char: [defined=0][ref=0.0] |  | unsigned char
+   signed char: [defined=0][ref=0.0] |  | signed char
+   short: [defined=0][ref=0.0] |  | short
+   long long int: [defined=0][ref=0.0] |  | long long int
+   long int: [defined=0][ref=0.0] |  | long int
+   long double: [defined=0][addressed][ref=0.0] |  | long double
+   int: [defined=0][ref=0.0] |  | int
+   float: [defined=0][addressed][ref=0.0] |  | float
+   double: [defined=0][addressed][ref=0.0] |  | double
+   char: [defined=0][ref=0.0] |  | char
+
+--------------------------- labels symbols -------------------------------------
+-------------------------------------------------------------------------------

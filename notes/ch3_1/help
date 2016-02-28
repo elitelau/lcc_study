@@ -1,0 +1,30 @@
+lcc [ option | file ]...
+	except for -l, options are processed left-to-right before files
+	unrecognized options are taken to be linker options
+-A	warn about nonANSI usage; 2nd -A warns more
+-b	emit expression-level profiling code; see bprint(1)
+-Bdir/	use the compiler named `dir/rcc'
+-c	compile only
+-dn	set switch statement density to `n'
+-Dname -Dname=def	define the preprocessor symbol `name'
+-E	run only the preprocessor on the named C programs and unsuffixed files
+-g	produce symbol table information for debuggers
+-help or -?	print this message
+-Idir	add `dir' to the beginning of the list of #include directories
+-lx	search library `x'
+-N	do not search the standard directories for #include files
+-n	emit code to check for dereferencing zero pointers
+-O	is ignored
+-o file	leave the output in `file'
+-P	print ANSI-style declarations for globals
+-p -pg	emit profiling code; see prof(1) and gprof(1)
+-S	compile to assembly language
+-static	specify static libraries (default is dynamic)
+-t -tname	emit function tracing calls to printf or to `name'
+-target name	is ignored
+-tempdir=dir	place temporary files in `dir/'; default=/tmp
+-Uname	undefine the preprocessor symbol `name'
+-v	show commands as they are executed; 2nd -v suppresses execution
+-w	suppress warnings
+-Woarg	specify system-specific `arg'
+-W[pfal]arg	pass `arg' to the preprocessor, compiler, assembler, or linker

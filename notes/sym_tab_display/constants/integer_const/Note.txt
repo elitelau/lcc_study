@@ -1,0 +1,10 @@
+constant() function is called by 8 times:
+   5 times from intconst();
+                  |-- 2 times in listnodes(), when enter "case ARG:", (4, 4) for size & align
+                  |-- 2 times in listnodes(), when enter "case ASGN:", (4, 4) for size & align
+                  |-- 1 times in docall(), for argoffset which with an even value maybe power of 2
+                        with value 4 maybe.
+   3 times from listnodes();  // there are CNST trees for 7, 11, 13
+
+   so defined=1 & defsymbol() for 7, 11, 13
+

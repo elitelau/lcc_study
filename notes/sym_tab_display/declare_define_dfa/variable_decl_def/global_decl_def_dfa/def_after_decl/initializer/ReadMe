@@ -1,0 +1,3 @@
+test_before_finalize.sym : symbol information dumps before finalize() applys
+
+test.sym : symbol information dumps after finalize()

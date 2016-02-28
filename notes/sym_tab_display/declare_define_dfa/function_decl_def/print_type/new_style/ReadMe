@@ -1,0 +1,12 @@
+int f(void); // !! no paramter
+int k(int, double);
+int bar(const char* str, ...);
+
+// type for `f' is:
+FUNCTION(rty=INT, proto=())    // Note: proto is not NULL
+
+// type for `k' is:
+FUNCTION(rty=INT, proto=(INT, DOUBLE))
+
+// type for `bar' is
+FUNCTION(rty=INT, proto=(PRT->CONST->CHAR, VOID))

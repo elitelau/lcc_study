@@ -1,0 +1,746 @@
+        -:    0:Source:src/expr.c
+        -:    0:Graph:lcc/expr.gcno
+        -:    0:Data:lcc/expr.gcda
+        -:    0:Runs:1
+        -:    0:Programs:1
+        -:    1:#include "c.h"
+        -:    2:#include "print_dag.h"
+        -:    3:
+        -:    4:static char rcsid[] = "$Id: expr.nw,v 2.29 1998/09/09 00:43:24 drh Exp $";
+        -:    5:
+        -:    6:static char prec[] = {
+        -:    7:#define xx(a,b,c,d,e,f,g) c,
+        -:    8:#define yy(a,b,c,d,e,f,g) c,
+        -:    9:#include "token.h"
+        -:   10:};
+        -:   11:static int oper[] = {
+        -:   12:#define xx(a,b,c,d,e,f,g) d,
+        -:   13:#define yy(a,b,c,d,e,f,g) d,
+        -:   14:#include "token.h"
+        -:   15:};
+        -:   16:float refinc = 1.0;
+        -:   17:static Tree expr2(void);
+        -:   18:static Tree expr3(int);
+        -:   19:static Tree nullcheck(Tree);
+        -:   20:static Tree postfix(Tree);
+        -:   21:static Tree unary(void);
+        -:   22:static Tree primary(void);
+        -:   23:static Type super(Type ty);
+        -:   24:
+function super called 2 returned 100% blocks executed 31%
+        2:   25:static Type super(Type ty) {
+        2:   26:	switch (ty->op) {
+        -:   27:	case INT:
+    #####:   28:		if (ty->size < inttype->size)
+    #####:   29:			return inttype;
+        2:   30:		break;
+        -:   31:	case UNSIGNED:
+        2:   32:		if (ty->size < unsignedtype->size)
+    #####:   33:			return unsignedtype;
+    #####:   34:		break;
+        -:   35:	case POINTER:
+    #####:   36:		return unsignedptr;
+        -:   37:	}
+        2:   38:	return ty;
+        -:   39:}
+function expr called 3 returned 100% blocks executed 36%
+        3:   40:Tree expr(int tok) {
+        3:   41:	static char stop[] = { IF, ID, '}', 0 };
+        3:   42:	Tree p = expr1(0);
+        -:   43:
+        3:   44:	while (t == ',') {
+    #####:   45:		Tree q;
+    #####:   46:		t = gettok();
+    #####:   47:		q = pointer(expr1(0));
+    #####:   48:		p = tree(RIGHT, q->type, root(value(p)), q);
+        -:   49:	}
+        3:   50:	if (tok)	
+    #####:   51:		test(tok, stop);
+        3:   52:	return p;
+        -:   53:}
+function expr0 called 2 returned 100% blocks executed 100%
+        2:   54:Tree expr0(int tok) {
+        -:   55:	// modified by liujian, 2011.10.29
+        -:   56:    // return root(expr(tok));
+        -:   57:
+        2:   58:    Tree t = root(expr(tok));
+        2:   59:    print_dag(t);
+        2:   60:    return t;
+        -:   61:}
+function expr1 called 5 returned 100% blocks executed 67%
+        5:   62:Tree expr1(int tok) {
+        5:   63:	static char stop[] = { IF, ID, 0 };
+        5:   64:	Tree p = expr2();
+        -:   65:
+        5:   66:	if (t == '='
+        -:   67:	|| (prec[t] >=  6 && prec[t] <=  8)
+        -:   68:	|| (prec[t] >= 11 && prec[t] <= 13)) {
+        1:   69:		int op = t;
+        1:   70:		t = gettok();
+        1:   71:		if (oper[op] == ASGN)
+    #####:   72:			p = asgntree(ASGN, p, value(expr1(0)));
+        -:   73:		else
+        -:   74:			{
+        1:   75:				expect('=');
+        1:   76:				p = incr(op, p, expr1(0));
+        -:   77:			}
+        -:   78:	}
+        5:   79:	if (tok)	
+    #####:   80:		test(tok, stop);
+        5:   81:	return p;
+        -:   82:}
+function incr called 1 returned 100% blocks executed 100%
+        1:   83:Tree incr(int op, Tree v, Tree e) {
+        1:   84:	return asgntree(ASGN, v, (*optree[op])(oper[op], v, e));
+        -:   85:}
+function expr2 called 5 returned 100% blocks executed 13%
+        5:   86:static Tree expr2(void) {
+        5:   87:	Tree p = expr3(4);
+        -:   88:
+        5:   89:	if (t == '?') {
+    #####:   90:		Tree l, r;
+    #####:   91:		Coordinate pts[2];
+    #####:   92:		if (Aflag > 1 && isfunc(p->type))
+    #####:   93:			warning("%s used in a conditional expression\n",
+        -:   94:				funcname(p));
+    #####:   95:		p = pointer(p);
+    #####:   96:		t = gettok();
+    #####:   97:		pts[0] = src;
+    #####:   98:		l = pointer(expr(':'));
+    #####:   99:		pts[1] = src;
+    #####:  100:		r = pointer(expr2());
+    #####:  101:		if (events.points)
+        -:  102:			{
+    #####:  103:				apply(events.points, &pts[0], &l);
+    #####:  104:				apply(events.points, &pts[1], &r);
+        -:  105:			}
+    #####:  106:		p = condtree(p, l, r);
+        -:  107:	}
+        5:  108:	return p;
+        -:  109:}
+function value called 7 returned 100% blocks executed 76%
+        7:  110:Tree value(Tree p) {
+        7:  111:	int op = generic(rightkid(p)->op);
+        -:  112:
+        7:  113:	if (p->type != voidtype
+        -:  114:	&& (op==AND || op==OR || op==NOT || op==EQ || op==NE
+        -:  115:	||  op== LE || op==LT || op== GE || op==GT))
+    #####:  116:		p = condtree(p, consttree(1, inttype),
+        -:  117:			consttree(0, inttype));
+        7:  118:	return p;
+        -:  119:}
+function expr3 called 5 returned 100% blocks executed 32%
+        5:  120:static Tree expr3(int k) {
+        5:  121:	int k1;
+        5:  122:	Tree p = unary();
+        -:  123:
+       14:  124:	for (k1 = prec[t]; k1 >= k; k1--)
+        9:  125:		while (prec[t] == k1 && *cp != '=') {
+    #####:  126:			Tree r;
+    #####:  127:			Coordinate pt;
+    #####:  128:			int op = t;
+    #####:  129:			t = gettok();
+    #####:  130:			pt = src;
+    #####:  131:			p = pointer(p);
+    #####:  132:			if (op == ANDAND || op == OROR) {
+    #####:  133:				r = pointer(expr3(k1));
+    #####:  134:				if (events.points)
+    #####:  135:					apply(events.points, &pt, &r);
+        -:  136:			} else
+    #####:  137:				r = pointer(expr3(k1 + 1));
+    #####:  138:			p = (*optree[op])(oper[op], p, r); 
+        -:  139:		}
+        5:  140:	return p;
+        -:  141:}
+function unary called 5 returned 100% blocks executed 2%
+        5:  142:static Tree unary(void) {
+        5:  143:	Tree p;
+        -:  144:
+        5:  145:	switch (t) {
+    #####:  146:	case '*':    t = gettok(); p = unary(); p = pointer(p);
+    #####:  147:						  if (isptr(p->type)
+        -:  148:						  && (isfunc(p->type->type) || isarray(p->type->type)))
+    #####:  149:						  	p = retype(p, p->type->type);
+        -:  150:						  else {
+    #####:  151:						  	if (YYnull)
+    #####:  152:						  		p = nullcheck(p);
+    #####:  153:						  	p = rvalue(p);
+    #####:  154:						  } break;
+    #####:  155:	case '&':    t = gettok(); p = unary(); if (isarray(p->type) || isfunc(p->type))
+    #####:  156:						  	p = retype(p, ptr(p->type));
+        -:  157:						  else
+    #####:  158:						  	p = lvalue(p);
+    #####:  159:						  if (isaddrop(p->op) && p->u.sym->sclass == REGISTER)
+    #####:  160:						  	error("invalid operand of unary &; `%s' is declared register\n", p->u.sym->name);
+        -:  161:
+    #####:  162:						  else if (isaddrop(p->op))
+    #####:  163:						  	p->u.sym->addressed = 1;
+    #####:  164: break;
+    #####:  165:	case '+':    t = gettok(); p = unary(); p = pointer(p);
+    #####:  166:						  if (isarith(p->type))
+    #####:  167:						  	p = cast(p, promote(p->type));
+        -:  168:						  else
+    #####:  169:						  	typeerror(ADD, p, NULL);  break;
+    #####:  170:	case '-':    t = gettok(); p = unary(); p = pointer(p);
+    #####:  171:						  if (isarith(p->type)) {
+    #####:  172:						  	Type ty = promote(p->type);
+    #####:  173:						  	p = cast(p, ty);
+    #####:  174:						  	if (isunsigned(ty)) {
+    #####:  175:						  		warning("unsigned operand of unary -\n");
+    #####:  176:						  		p = simplify(ADD, ty, simplify(BCOM, ty, p, NULL), cnsttree(ty, 1UL));
+        -:  177:						  	} else
+    #####:  178:						  		p = simplify(NEG, ty, p, NULL);
+        -:  179:						  } else
+    #####:  180:						  	typeerror(SUB, p, NULL); break;
+    #####:  181:	case '~':    t = gettok(); p = unary(); p = pointer(p);
+    #####:  182:						  if (isint(p->type)) {
+    #####:  183:						  	Type ty = promote(p->type);
+    #####:  184:						  	p = simplify(BCOM, ty, cast(p, ty), NULL);
+        -:  185:						  } else
+    #####:  186:						  	typeerror(BCOM, p, NULL);  break;
+    #####:  187:	case '!':    t = gettok(); p = unary(); p = pointer(p);
+    #####:  188:						  if (isscalar(p->type))
+    #####:  189:						  	p = simplify(NOT, inttype, cond(p), NULL);
+        -:  190:						  else
+    #####:  191:						  	typeerror(NOT, p, NULL); break;
+    #####:  192:	case INCR:   t = gettok(); p = unary(); p = incr(INCR, pointer(p), consttree(1, inttype)); break;
+    #####:  193:	case DECR:   t = gettok(); p = unary(); p = incr(DECR, pointer(p), consttree(1, inttype)); break;
+    #####:  194:	case TYPECODE: case SIZEOF: { int op = t;
+    #####:  195:				      Type ty;
+    #####:  196:				      p = NULL;
+    #####:  197:				      t = gettok();
+    #####:  198:				      if (t == '(') {
+    #####:  199:				      	t = gettok();
+    #####:  200:				      	if (istypename(t, tsym)) {
+    #####:  201:				      		ty = typename();
+    #####:  202:				      		expect(')');
+        -:  203:				      	} else {
+    #####:  204:				      		p = postfix(expr(')'));
+    #####:  205:				      		ty = p->type;
+        -:  206:				      	}
+        -:  207:				      } else {
+    #####:  208:				      	p = unary();
+    #####:  209:				      	ty = p->type;
+        -:  210:				      }
+    #####:  211:				      assert(ty);
+    #####:  212:				      if (op == TYPECODE)
+    #####:  213:				      	p = cnsttree(inttype, (long)ty->op);
+        -:  214:				      else {
+    #####:  215:				      	if (isfunc(ty) || ty->size == 0)
+    #####:  216:				      		error("invalid type argument `%t' to `sizeof'\n", ty);
+    #####:  217:				      	else if (p && rightkid(p)->op == FIELD)
+    #####:  218:				      		error("`sizeof' applied to a bit field\n");
+    #####:  219:				      	p = cnsttree(unsignedlong, (unsigned long)ty->size);
+    #####:  220:				      } } break;
+        -:  221:	case '(':
+    #####:  222:		t = gettok();
+    #####:  223:		if (istypename(t, tsym)) {
+    #####:  224:			Type ty, ty1 = typename(), pty;
+    #####:  225:			expect(')');
+    #####:  226:			ty = unqual(ty1);
+    #####:  227:			if (isenum(ty)) {
+    #####:  228:				Type ty2 = ty->type;
+    #####:  229:				if (isconst(ty1))
+    #####:  230:					ty2 = qual(CONST, ty2);
+    #####:  231:				if (isvolatile(ty1))
+    #####:  232:					ty2 = qual(VOLATILE, ty2);
+    #####:  233:				ty1 = ty2;
+    #####:  234:				ty = ty->type;
+        -:  235:			}
+    #####:  236:			p = pointer(unary());
+    #####:  237:			pty = p->type;
+    #####:  238:			if (isenum(pty))
+    #####:  239:				pty = pty->type;
+    #####:  240:			if (isarith(pty) && isarith(ty)
+        -:  241:			||  isptr(pty)   && isptr(ty)) {
+    #####:  242:				explicitCast++;
+    #####:  243:				p = cast(p, ty);
+    #####:  244:				explicitCast--;
+    #####:  245:			} else if (isptr(pty) && isint(ty)
+        -:  246:			||       isint(pty) && isptr(ty)) {
+    #####:  247:				if (Aflag >= 1 && ty->size < pty->size)
+    #####:  248:					warning("conversion from `%t' to `%t' is compiler dependent\n", p->type, ty);
+        -:  249:
+    #####:  250:				p = cast(p, ty);
+    #####:  251:			} else if (ty != voidtype) {
+    #####:  252:				error("cast from `%t' to `%t' is illegal\n",
+        -:  253:					p->type, ty1);
+    #####:  254:				ty1 = inttype;
+        -:  255:			}
+    #####:  256:			if (generic(p->op) == INDIR || ty->size == 0)
+    #####:  257:				p = tree(RIGHT, ty1, NULL, p);
+        -:  258:			else
+    #####:  259:				p = retype(p, ty1);
+        -:  260:		} else
+    #####:  261:			p = postfix(expr(')'));
+    #####:  262:		break;
+        -:  263:	default:
+        5:  264:		p = postfix(primary());
+        -:  265:	}
+        5:  266:	return p;
+        -:  267:}
+        -:  268:
+function postfix called 5 returned 100% blocks executed 12%
+        6:  269:static Tree postfix(Tree p) {
+       11:  270:	for (;;)
+        6:  271:		switch (t) {
+    #####:  272:		case INCR:  p = tree(RIGHT, p->type,
+        -:  273:			    	tree(RIGHT, p->type,
+        -:  274:			    		p,
+        -:  275:			    		incr(t, p, consttree(1, inttype))),
+        -:  276:			    	p);
+    #####:  277:			    t = gettok(); break;
+    #####:  278:		case DECR:  p = tree(RIGHT, p->type,
+        -:  279:			    	tree(RIGHT, p->type,
+        -:  280:			    		p,
+        -:  281:			    		incr(t, p, consttree(1, inttype))),
+        -:  282:			    	p);
+    #####:  283:			    t = gettok(); break;
+        -:  284:		case '[':   {
+    #####:  285:			    	Tree q;
+    #####:  286:			    	t = gettok();
+    #####:  287:			    	q = expr(']');
+    #####:  288:			    	if (YYnull)
+    #####:  289:			    		if (isptr(p->type))
+    #####:  290:			    			p = nullcheck(p);
+    #####:  291:			    		else if (isptr(q->type))
+    #####:  292:			    			q = nullcheck(q);
+    #####:  293:			    	p = (*optree['+'])(ADD, pointer(p), pointer(q));
+    #####:  294:			    	if (isptr(p->type) && isarray(p->type->type))
+    #####:  295:			    		p = retype(p, p->type->type);
+        -:  296:			    	else
+    #####:  297:			    		p = rvalue(p);
+    #####:  298:			    } break;
+        -:  299:		case '(':   {
+        1:  300:			    	Type ty;
+        1:  301:			    	Coordinate pt;
+        1:  302:			    	p = pointer(p);
+        1:  303:			    	if (isptr(p->type) && isfunc(p->type->type))
+        1:  304:			    		ty = p->type->type;
+        -:  305:			    	else {
+    #####:  306:			    		error("found `%t' expected a function\n", p->type);
+    #####:  307:			    		ty = func(voidtype, NULL, 1);
+    #####:  308:			    		p = retype(p, ptr(ty));
+        -:  309:			    	}
+        1:  310:			    	pt = src;
+        1:  311:			    	t = gettok();
+        1:  312:			    	p = call(p, ty, pt);
+        1:  313:			    } break;
+    #####:  314:		case '.':   t = gettok();
+    #####:  315:			    if (t == ID) {
+    #####:  316:			    	if (isstruct(p->type)) {
+    #####:  317:			    		Tree q = addrof(p);
+    #####:  318:			    		p = field(q, token);
+    #####:  319:			    		q = rightkid(q);
+    #####:  320:			    		if (isaddrop(q->op) && q->u.sym->temporary)
+    #####:  321:			    			p = tree(RIGHT, p->type, p, NULL);
+        -:  322:			    	} else
+    #####:  323:			    		error("left operand of . has incompatible type `%t'\n",
+        -:  324:			    			p->type);
+    #####:  325:			    	t = gettok();
+        -:  326:			    } else
+    #####:  327:			    	error("field name expected\n"); break;
+    #####:  328:		case DEREF: t = gettok();
+    #####:  329:			    p = pointer(p);
+    #####:  330:			    if (t == ID) {
+    #####:  331:			    	if (isptr(p->type) && isstruct(p->type->type)) {
+    #####:  332:			    		if (YYnull)
+    #####:  333:			    			p = nullcheck(p);
+    #####:  334:			    		p = field(p, token);
+        -:  335:			    	} else
+    #####:  336:			    		error("left operand of -> has incompatible type `%t'\n", p->type);
+        -:  337:
+    #####:  338:			    	t = gettok();
+        -:  339:			    } else
+    #####:  340:			    	error("field name expected\n"); break;
+        -:  341:		default:
+        5:  342:			return p;
+        -:  343:		}
+        -:  344:}
+function primary called 5 returned 100% blocks executed 18%
+        5:  345:static Tree primary(void) {
+        5:  346:	Tree p;
+        -:  347:
+        5:  348:	assert(t != '(');
+        5:  349:	switch (t) {
+        -:  350:	case ICON:
+        3:  351:	case FCON: p = tree(mkop(CNST,tsym->type), tsym->type, NULL, NULL);
+        3:  352:		   p->u.v = tsym->u.c.v;
+        3:  353: break;
+    #####:  354:	case SCON: if (ischar(tsym->type->type))
+    #####:  355:		   	tsym->u.c.v.p = stringn(tsym->u.c.v.p, tsym->type->size);
+        -:  356:		   else
+    #####:  357:		   	tsym->u.c.v.p = memcpy(allocate(tsym->type->size, PERM), tsym->u.c.v.p, tsym->type->size);
+    #####:  358:		   tsym = constant(tsym->type, tsym->u.c.v); 
+    #####:  359:		   if (tsym->u.c.loc == NULL)
+    #####:  360:		   	tsym->u.c.loc = genident(STATIC, tsym->type, GLOBAL);
+    #####:  361:		   p = idtree(tsym->u.c.loc); break;
+        2:  362:	case ID:   if (tsym == NULL)
+        -:  363:		   	{
+    #####:  364:				Symbol p = install(token, &identifiers, level, FUNC);
+    #####:  365:				p->src = src;
+    #####:  366:				if (getchr() == '(') {
+    #####:  367:					Symbol q = lookup(token, externals);
+    #####:  368:					p->type = func(inttype, NULL, 1);
+    #####:  369:					p->sclass = EXTERN;
+    #####:  370:					if (Aflag >= 1)
+    #####:  371:						warning("missing prototype\n");
+    #####:  372:					if (q && !eqtype(q->type, p->type, 1))
+    #####:  373:						warning("implicit declaration of `%s' does not match previous declaration at %w\n", q->name, &q->src);
+        -:  374:
+    #####:  375:					if (q == NULL) {
+    #####:  376:						q = install(p->name, &externals, GLOBAL, PERM);
+    #####:  377:						q->type = p->type;
+    #####:  378:						q->sclass = EXTERN;
+    #####:  379:						q->src = src;
+    #####:  380:						(*IR->defsymbol)(q);
+        -:  381:					}
+    #####:  382:					p->u.alias = q;
+        -:  383:				} else {
+    #####:  384:					error("undeclared identifier `%s'\n", p->name);
+    #####:  385:					p->sclass = AUTO;
+    #####:  386:					p->type = inttype;
+    #####:  387:					if (p->scope == GLOBAL)
+    #####:  388:						(*IR->defsymbol)(p);
+        -:  389:					else
+    #####:  390:						addlocal(p);
+        -:  391:				}
+    #####:  392:				t = gettok();
+    #####:  393:				if (xref)
+    #####:  394:					use(p, src);
+    #####:  395:				return idtree(p);
+        -:  396:			}
+        2:  397:		   if (xref)
+    #####:  398:		   	use(tsym, src);
+        2:  399:		   if (tsym->sclass == ENUM)
+    #####:  400:		   	p = consttree(tsym->u.value, inttype);
+        -:  401:		   else {
+        2:  402:		   	if (tsym->sclass == TYPEDEF)
+    #####:  403:		   		error("illegal use of type name `%s'\n", tsym->name);
+        2:  404:		   	p = idtree(tsym);
+        2:  405:		   } break;
+        -:  406:	case FIRSTARG:
+    #####:  407:		if (level > PARAM && cfunc && cfunc->u.f.callee[0])
+    #####:  408:			p = idtree(cfunc->u.f.callee[0]);
+        -:  409:		else {
+    #####:  410:			error("illegal use of `%k'\n", FIRSTARG);
+    #####:  411:			p = cnsttree(inttype, 0L);
+        -:  412:		}
+    #####:  413:		break;
+        -:  414:	default:
+    #####:  415:		error("illegal expression\n");
+    #####:  416:			p = cnsttree(inttype, 0L);
+        -:  417:	}
+        5:  418:	t = gettok();
+        5:  419:	return p;
+        -:  420:}
+function idtree called 2 returned 100% blocks executed 60%
+        2:  421:Tree idtree(Symbol p) {
+        2:  422:	int op;
+        2:  423:	Tree e;
+        2:  424:	Type ty = p->type ? unqual(p->type) : voidptype;
+        -:  425:
+        2:  426:	if (p->scope == GLOBAL || p->sclass == STATIC)
+        1:  427:		op = ADDRG;
+        1:  428:	else if (p->scope == PARAM) {
+        1:  429:		op = ADDRF;
+        1:  430:		if (isstruct(p->type) && !IR->wants_argb)
+        -:  431:			{
+    #####:  432:				e = tree(mkop(op,voidptype), ptr(ptr(p->type)), NULL, NULL);
+    #####:  433:				e->u.sym = p;
+    #####:  434:				return rvalue(rvalue(e));
+        -:  435:			}
+    #####:  436:	} else if (p->sclass == EXTERN) {
+    #####:  437:		assert(p->u.alias);
+    #####:  438:		p = p->u.alias;
+    #####:  439:		op = ADDRG;
+        -:  440:	} else
+    #####:  441:		op = ADDRL;
+        2:  442:	p->ref += refinc;
+        2:  443:	if (isarray(ty))
+    #####:  444:		e = tree(mkop(op,voidptype), p->type,      NULL, NULL);
+        2:  445:	else if (isfunc(ty))
+        1:  446:		e = tree(mkop(op,funcptype), p->type,      NULL, NULL);
+        -:  447:	else
+        1:  448:		e = tree(mkop(op,voidptype), ptr(p->type), NULL, NULL);
+        2:  449:	e->u.sym = p;
+        2:  450:	if (isptr(e->type))
+        1:  451:		e = rvalue(e);
+        2:  452:	return e;
+        -:  453:}
+        -:  454:
+function rvalue called 1 returned 100% blocks executed 86%
+        1:  455:Tree rvalue(Tree p) {
+        1:  456:	Type ty = deref(p->type);
+        -:  457:
+        1:  458:	ty = unqual(ty);
+        1:  459:	return tree(mkop(INDIR,ty), ty, p, NULL);
+        -:  460:}
+function lvalue called 1 returned 100% blocks executed 46%
+        1:  461:Tree lvalue(Tree p) {
+        1:  462:	if (generic(p->op) != INDIR) {
+    #####:  463:		error("lvalue required\n");
+    #####:  464:		return value(p);
+        1:  465:	} else if (unqual(p->type) == voidtype)
+    #####:  466:		warning("`%t' used as an lvalue\n", p->type);
+        1:  467:	return p->kids[0];
+        -:  468:}
+function retype called 3 returned 100% blocks executed 100%
+        3:  469:Tree retype(Tree p, Type ty) {
+        3:  470:	Tree q;
+        -:  471:
+        3:  472:	if (p->type == ty)
+        2:  473:		return p;
+        1:  474:	q = tree(p->op, ty, p->kids[0], p->kids[1]);
+        1:  475:	q->node = p->node;
+        1:  476:	q->u = p->u;
+        1:  477:	return q;
+        -:  478:}
+function rightkid called 7 returned 100% blocks executed 40%
+        7:  479:Tree rightkid(Tree p) {
+        7:  480:	while (p && p->op == RIGHT)
+    #####:  481:		if (p->kids[1])
+    #####:  482:			p = p->kids[1];
+    #####:  483:		else if (p->kids[0])
+    #####:  484:			p = p->kids[0];
+        -:  485:		else
+    #####:  486:			assert(0);
+        7:  487:	assert(p);
+        7:  488:	return p;
+        -:  489:}
+function hascall called 6 returned 100% blocks executed 55%
+        6:  490:int hascall(Tree p) {
+        6:  491:	if (p == 0)
+        4:  492:		return 0;
+        2:  493:	if (generic(p->op) == CALL || (IR->mulops_calls &&
+        -:  494:	  (p->op == DIV+I || p->op == MOD+I || p->op == MUL+I
+        -:  495:	|| p->op == DIV+U || p->op == MOD+U || p->op == MUL+U)))
+    #####:  496:		return 1;
+        2:  497:	return hascall(p->kids[0]) || hascall(p->kids[1]);
+        -:  498:}
+function binary called 1 returned 100% blocks executed 67%
+        1:  499:Type binary(Type xty, Type yty) {
+        -:  500:#define xx(t) if (xty == t || yty == t) return t
+        1:  501:	xx(longdouble);
+        1:  502:	xx(doubletype);
+        1:  503:	xx(floattype);
+        1:  504:	xx(unsignedlonglong);
+        1:  505:	xx(longlong);
+        1:  506:	xx(unsignedlong);
+        1:  507:	if (xty == longtype     && yty == unsignedtype
+        -:  508:	||  xty == unsignedtype && yty == longtype)
+    #####:  509:		if (longtype->size > unsignedtype->size)
+    #####:  510:			return longtype;
+        -:  511:		else
+    #####:  512:			return unsignedlong;
+        1:  513:	xx(longtype);
+        1:  514:	xx(unsignedtype);
+    #####:  515:	return inttype;
+        -:  516:#undef xx
+        -:  517:}
+function pointer called 4 returned 100% blocks executed 67%
+        4:  518:Tree pointer(Tree p) {
+        4:  519:	if (isarray(p->type))
+        -:  520:		/* assert(p->op != RIGHT || p->u.sym == NULL), */
+    #####:  521:		p = retype(p, atop(p->type));
+        4:  522:	else if (isfunc(p->type))
+        1:  523:		p = retype(p, ptr(p->type));
+        4:  524:	return p;
+        -:  525:}
+function cond called 0 returned 0% blocks executed 0%
+    #####:  526:Tree cond(Tree p) {
+    #####:  527:	int op = generic(rightkid(p)->op);
+        -:  528:
+    #####:  529:	if (op == AND || op == OR || op == NOT
+        -:  530:	||  op == EQ  || op == NE
+        -:  531:	||  op == LE  || op == LT || op == GE || op == GT)
+    #####:  532:		return p;
+    #####:  533:	p = pointer(p);
+    #####:  534:	return (*optree[NEQ])(NE, p, consttree(0, inttype));
+        -:  535:}
+function cast called 6 returned 100% blocks executed 21%
+        6:  536:Tree cast(Tree p, Type type) {
+        6:  537:	Type src, dst;
+        -:  538:
+        6:  539:	p = value(p);
+        6:  540:	if (p->type == type)
+        4:  541:		return p;
+        2:  542:	dst = unqual(type);
+        2:  543:	src = unqual(p->type);
+        2:  544:	if (src->op != dst->op || src->size != dst->size) {
+        2:  545:		switch (src->op) {
+        -:  546:		case INT:
+        2:  547:			if (src->size < inttype->size)
+    #####:  548:				p = simplify(CVI, inttype, p, NULL);
+    #####:  549:			break;
+        -:  550:		case UNSIGNED:
+    #####:  551:			if (src->size < inttype->size)
+    #####:  552:				p = simplify(CVU, inttype, p, NULL);
+    #####:  553:			else if (src->size < unsignedtype->size)
+    #####:  554:				p = simplify(CVU, unsignedtype, p, NULL);
+    #####:  555:			break;
+        -:  556:		case ENUM:
+    #####:  557:			p = retype(p, inttype);
+    #####:  558:			break;
+        -:  559:		case POINTER:
+    #####:  560:			if (isint(dst) && src->size > dst->size)
+    #####:  561:				warning("conversion from `%t' to `%t' is undefined\n", p->type, type);
+    #####:  562:			p = simplify(CVP, super(src), p, NULL);
+    #####:  563:			break;
+        -:  564:		case FLOAT:
+    #####:  565:			break;
+    #####:  566:		default: assert(0);
+        -:  567:		}
+        -:  568:		{
+        2:  569:			src = unqual(p->type);
+        2:  570:			dst = super(dst);
+        2:  571:			if (src->op != dst->op)
+        2:  572:				switch (src->op) {
+        -:  573:				case INT:
+        2:  574:					p = simplify(CVI, dst, p, NULL);
+        2:  575:					break;
+        -:  576:				case UNSIGNED:
+    #####:  577:					if (isfloat(dst)) {
+    #####:  578:						Type ssrc = signedint(src);
+    #####:  579:						Tree two = cnsttree(longdouble, (long double)2.0);
+    #####:  580:						p = (*optree['+'])(ADD,
+        -:  581:							(*optree['*'])(MUL,
+        -:  582:								two,
+        -:  583:								simplify(CVU, ssrc,
+        -:  584:									simplify(RSH, src,
+        -:  585:										p, consttree(1, inttype)), NULL)),
+        -:  586:							simplify(CVU, ssrc,
+        -:  587:								simplify(BAND, src,
+        -:  588:									p, consttree(1, unsignedtype)), NULL));
+        -:  589:					} else
+    #####:  590:						p = simplify(CVU, dst, p, NULL);
+    #####:  591:					break;
+        -:  592:				case FLOAT:
+    #####:  593:					if (isunsigned(dst)) {
+    #####:  594:						Type sdst = signedint(dst);
+    #####:  595:						Tree c = cast(cnsttree(longdouble, (long double)sdst->u.sym->u.limits.max.i + 1), src);
+    #####:  596:						p = condtree(
+        -:  597:							simplify(GE, src, p, c),
+        -:  598:							(*optree['+'])(ADD,
+        -:  599:								cast(cast(simplify(SUB, src, p, c), sdst), dst),
+        -:  600:								cast(cnsttree(unsignedlong, (unsigned long)sdst->u.sym->u.limits.max.i + 1), dst)),
+        -:  601:							simplify(CVF, sdst, p, NULL));
+        -:  602:					} else
+    #####:  603:						p = simplify(CVF, dst, p, NULL);
+    #####:  604:					break;
+    #####:  605:				default: assert(0);
+        -:  606:				}
+        2:  607:			dst = unqual(type);
+        -:  608:		}
+        -:  609:	}
+        2:  610:	src = unqual(p->type);
+        2:  611:	switch (src->op) {
+        -:  612:	case INT:
+    #####:  613:		if (src->op != dst->op || src->size != dst->size)
+    #####:  614:			p = simplify(CVI, dst, p, NULL);
+    #####:  615:		break;
+        -:  616:	case UNSIGNED:
+        2:  617:		if (src->op != dst->op || src->size != dst->size)
+    #####:  618:			p = simplify(CVU, dst, p, NULL);
+    #####:  619:		break;
+        -:  620:	case FLOAT:
+    #####:  621:		if (src->op != dst->op || src->size != dst->size)
+    #####:  622:			p = simplify(CVF, dst, p, NULL);
+    #####:  623:		break;
+        -:  624:	case POINTER:
+    #####:  625:		if (src->op != dst->op)
+    #####:  626:			p = simplify(CVP, dst, p, NULL);
+        -:  627:		else {
+    #####:  628:			if (isfunc(src->type) && !isfunc(dst->type)
+        -:  629:			|| !isfunc(src->type) &&  isfunc(dst->type))
+    #####:  630:				warning("conversion from `%t' to `%t' is compiler dependent\n", p->type, type);
+        -:  631:
+    #####:  632:			if (src->size != dst->size)
+    #####:  633:				p = simplify(CVP, dst, p, NULL);
+        -:  634:		}
+    #####:  635:		break;
+    #####:  636:	default: assert(0);
+        -:  637:	}
+        2:  638:	return retype(p, type);
+        -:  639:}
+function field called 0 returned 0% blocks executed 0%
+    #####:  640:Tree field(Tree p, const char *name) {
+    #####:  641:	Field q;
+    #####:  642:	Type ty1, ty = p->type;
+        -:  643:
+    #####:  644:	if (isptr(ty))
+    #####:  645:		ty = deref(ty);
+    #####:  646:	ty1 = ty;
+    #####:  647:	ty = unqual(ty);
+    #####:  648:	if ((q = fieldref(name, ty)) != NULL) {
+    #####:  649:		if (isarray(q->type)) {
+    #####:  650:			ty = q->type->type;
+    #####:  651:			if (isconst(ty1) && !isconst(ty))
+    #####:  652:				ty = qual(CONST, ty);
+    #####:  653:			if (isvolatile(ty1) && !isvolatile(ty))
+    #####:  654:				ty = qual(VOLATILE, ty);
+    #####:  655:			ty = array(ty, q->type->size/ty->size, q->type->align);
+        -:  656:		} else {
+    #####:  657:			ty = q->type;
+    #####:  658:			if (isconst(ty1) && !isconst(ty))
+    #####:  659:				ty = qual(CONST, ty);
+    #####:  660:			if (isvolatile(ty1) && !isvolatile(ty))
+    #####:  661:				ty = qual(VOLATILE, ty);
+    #####:  662:			ty = ptr(ty);
+        -:  663:		}
+    #####:  664:		if (YYcheck && !isaddrop(p->op) && q->offset > 0)	/* omit */
+    #####:  665:			p = nullcall(ty, YYcheck, p, consttree(q->offset, inttype));	/* omit */
+        -:  666:		else					/* omit */
+    #####:  667:		p = simplify(ADD+P, ty, p, consttree(q->offset, inttype));
+        -:  668:
+    #####:  669:		if (q->lsb) {
+    #####:  670:			p = tree(FIELD, ty->type, rvalue(p), NULL);
+    #####:  671:			p->u.field = q;
+    #####:  672:		} else if (!isarray(q->type))
+    #####:  673:			p = rvalue(p);
+        -:  674:
+        -:  675:	} else {
+    #####:  676:		error("unknown field `%s' of `%t'\n", name, ty);
+    #####:  677:		p = rvalue(retype(p, ptr(inttype)));
+        -:  678:	}
+    #####:  679:	return p;
+        -:  680:}
+        -:  681:/* funcname - return name of function f or a function' */
+function funcname called 0 returned 0% blocks executed 0%
+    #####:  682:char *funcname(Tree f) {
+    #####:  683:	if (isaddrop(f->op))
+    #####:  684:		return stringf("`%s'", f->u.sym->name);
+    #####:  685:	return "a function";
+        -:  686:}
+function nullcheck called 0 returned 0% blocks executed 0%
+    #####:  687:static Tree nullcheck(Tree p) {
+    #####:  688:	if (!needconst && YYnull && isptr(p->type)) {
+    #####:  689:		p = value(p);
+    #####:  690:		if (strcmp(YYnull->name, "_YYnull") == 0) {
+    #####:  691:			Symbol t1 = temporary(REGISTER, voidptype);
+    #####:  692:			p = tree(RIGHT, p->type,
+        -:  693:				tree(OR, voidtype,
+        -:  694:					cond(asgn(t1, cast(p, voidptype))),
+        -:  695:					vcall(YYnull, voidtype,	(file && *file ? pointer(idtree(mkstr(file)->u.c.loc)) : cnsttree(voidptype, NULL)), cnsttree(inttype, (long)lineno)		, NULL)),
+        -:  696:				idtree(t1));
+        -:  697:		}
+        -:  698:
+        -:  699:		else
+    #####:  700:			p = nullcall(p->type, YYnull, p, cnsttree(inttype, 0L));
+        -:  701:
+        -:  702:	}
+    #####:  703:	return p;
+        -:  704:}
+function nullcall called 0 returned 0% blocks executed 0%
+    #####:  705:Tree nullcall(Type pty, Symbol f, Tree p, Tree e) {
+    #####:  706:	Type ty;
+        -:  707:
+    #####:  708:	if (isarray(pty))
+    #####:  709:		return retype(nullcall(atop(pty), f, p, e), pty);
+    #####:  710:	ty = unqual(unqual(p->type)->type);
+    #####:  711:	return vcall(f, pty,
+        -:  712:		p, e,
+        -:  713:		cnsttree(inttype, (long)ty->size),
+        -:  714:		cnsttree(inttype, (long)ty->align),
+        -:  715:		(file && *file ? pointer(idtree(mkstr(file)->u.c.loc)) : cnsttree(voidptype, NULL)), cnsttree(inttype, (long)lineno)		, NULL);
+        -:  716:}

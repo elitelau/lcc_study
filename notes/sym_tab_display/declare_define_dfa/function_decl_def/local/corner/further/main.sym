@@ -1,0 +1,36 @@
+--------------------------- external symbols -----------------------------------
+   printf: [extern][defined=0][oldstyle][ref=1.0] | extern int printf(); | int func
+   sum: [extern][defined=0][newstyle][ref=1.0] | extern int sum(void); | int func(void)
+
+------------------------- global symbols --------------------------------
+   main: [defined=1][oldstyle][ref=0.0] | int main(void); | int func(void)
+   a: [defined=1][ref=0.0] | int a[10]; | array (10*4:4) of int
+
+--------------------------- constant symbols -----------------------------------
+   8: [static][defined=1][ref=0.0] | static int 8; | int
+   0: [static][defined=1][ref=0.0] | static int 0; | int
+   4: [static][defined=1][ref=0.0] | static int 4; | int
+   sum is: %d.
+: [static][defined=1][ref=0.0] | static char sum is: %d.
+[13]; | array (13*1:1) of char
+
+--------------------------- types symbols --------------------------------------
+   T*: [defined=0][ref=0.0] | 
+   void: [defined=0][ref=0.0] |  | void
+   unsigned long long: [defined=0][ref=0.0] |  | unsigned long long
+   unsigned int: [defined=0][ref=0.0] |  | unsigned int
+   unsigned short: [defined=0][ref=0.0] |  | unsigned short
+   unsigned long: [defined=0][ref=0.0] |  | unsigned long
+   unsigned char: [defined=0][ref=0.0] |  | unsigned char
+   signed char: [defined=0][ref=0.0] |  | signed char
+   short: [defined=0][ref=0.0] |  | short
+   long long int: [defined=0][ref=0.0] |  | long long int
+   long int: [defined=0][ref=0.0] |  | long int
+   long double: [defined=0][addressed][ref=0.0] |  | long double
+   int: [defined=0][ref=0.0] |  | int
+   float: [defined=0][addressed][ref=0.0] |  | float
+   double: [defined=0][addressed][ref=0.0] |  | double
+   char: [defined=0][ref=0.0] |  | char
+
+--------------------------- labels symbols -------------------------------------
+-------------------------------------------------------------------------------

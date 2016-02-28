@@ -1,0 +1,10 @@
+// refer to 19.1 item in Notebook for ch11
+
+s1: [declaration]
+s2: [definition]
+s3: error() happens
+
+s1->s1 by redeclaration                 // see cases in: redecl_rules/ 
+s1->s2 by initializer/finalize          // see cases in: def_after_decl/ 
+s2->s3 by redefinition: cause redefinition error
+s2->s2 by redeclaration

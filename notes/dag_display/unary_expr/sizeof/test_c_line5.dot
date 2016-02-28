@@ -1,0 +1,17 @@
+////////////////////////////////////////////////////////////////////////////////
+// Generate the dot file for drawing semantic structure of statements
+
+// File name: test.c
+// Line number: 5
+////////////////////////////////////////////////////////////////////////////////
+
+digraph semantic_dag  {
+    node [color=lightblue2, style=filled];
+
+    v1 [label="ASGNI int"];
+    v2 [label="ADDRLP ptr->int\n\[c\]", shape=box];
+    v3 [label="CNSTI int\n\(4\)", shape=box];
+    v1 -> v2
+    v1 -> v3
+
+}

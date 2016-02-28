@@ -1,0 +1,26 @@
+constant() function is called by 9 times:
+   6 times from intconst();
+                  |-- 4 times in listnodes(), when enter "case ARG:", value(4, 4) for size & align
+                  |                         & value(8, 4) for size & align for double type.
+                  |-- 2 times in docall(), for argoffset which with an even value maybe power of 2
+                        with value 4 maybe.
+   3 times from listnodes();  // for floating & double constants 
+                  |-- 2 times by calling "cvtconst"
+                  |            |--defined=0, generated=1 and defsymbol() for u.c.loc
+                  |-- 1 time by a CNST tree for 1371 in statement "return 1371;" 
+
+   floating constant analysis:
+   > 3.14 in line10 is interpreted as floating type.
+     3.14 in line11 is interpreted as double type.
+            |--defined=1 for sym  // in constant() when call cvtconst() in listnode()
+            |                     // doubletype.outofline=1, so addressed=1
+            |                     // floattype.outofline=1, so... see lcc/x86linux.c
+            |--defined=0, generated=1 and defsymbol() for u.c.loc 
+            |                     // when call cvtconst() in listnode
+            |                     // !! generate: ".LCxx", since generated = 1
+            |--defglobal() for u.c.loc   // doconst(); defglobal(p->u.c.loc, LIT)
+            |    |--(*IR)->global();  //!! generate: ".align xx"
+            |    |--defined=1
+            |--defconst() for u.c.loc //!! generate: ".long xx" for float, 
+                                      //           & ".long xx\n .long xx" for double
+            

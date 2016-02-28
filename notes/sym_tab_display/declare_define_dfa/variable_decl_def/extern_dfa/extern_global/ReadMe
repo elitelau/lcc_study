@@ -1,0 +1,6 @@
+// test.c
+extern int b;
+
+-------------------
+b is added to `globals symbol table, with extern scope.
+b.defined=0

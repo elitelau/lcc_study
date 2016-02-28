@@ -1,0 +1,347 @@
+        -:    0:Source:src/stab.c
+        -:    0:Graph:lcc/stab.gcno
+        -:    0:Data:lcc/stab.gcda
+        -:    0:Runs:1
+        -:    0:Programs:1
+        -:    1:#include <string.h>
+        -:    2:#include <stdlib.h>
+        -:    3:#include "c.h"
+        -:    4:#include "stab.h"
+        -:    5:
+        -:    6:static char rcsid[] = "$Id: sparc.nw,v 2.31 1998/09/10 22:40:19 drh Exp $";
+        -:    7:
+        -:    8:static char *currentfile;       /* current file name */
+        -:    9:static int ntypes;
+        -:   10:
+        -:   11:extern Interface sparcIR;
+        -:   12:
+        -:   13:char *stabprefix = "L";
+        -:   14:
+        -:   15:extern char *stabprefix;
+        -:   16:extern void stabblock(int, int, Symbol*);
+        -:   17:extern void stabend(Coordinate *, Symbol, Coordinate **, Symbol *, Symbol *);
+        -:   18:extern void stabfend(Symbol, int);
+        -:   19:extern void stabinit(char *, int, char *[]);
+        -:   20:extern void stabline(Coordinate *);
+        -:   21:extern void stabsym(Symbol);
+        -:   22:extern void stabtype(Symbol);
+        -:   23:
+        -:   24:static void asgncode(Type, int);
+        -:   25:static void dbxout(Type);
+        -:   26:static int dbxtype(Type);
+        -:   27:static int emittype(Type, int, int);
+        -:   28:
+        -:   29:/* asgncode - assign type code to ty */
+function asgncode called 0 returned 0% blocks executed 0%
+    #####:   30:static void asgncode(Type ty, int lev) {
+    #####:   31:	if (ty->x.marked || ty->x.typeno)
+    #####:   32:		return;
+    #####:   33:	ty->x.marked = 1;
+    #####:   34:	switch (ty->op) {
+        -:   35:	case VOLATILE: case CONST: case VOLATILE+CONST:
+    #####:   36:		asgncode(ty->type, lev);
+    #####:   37:		ty->x.typeno = ty->type->x.typeno;
+    #####:   38:		break;
+        -:   39:	case POINTER: case FUNCTION: case ARRAY:
+    #####:   40:		asgncode(ty->type, lev + 1);
+        -:   41:		/* fall thru */
+        -:   42:	case VOID: case INT: case UNSIGNED: case FLOAT:
+    #####:   43:		break;
+        -:   44:	case STRUCT: case UNION: {
+    #####:   45:		Field p;
+    #####:   46:		for (p = fieldlist(ty); p; p = p->link)
+    #####:   47:			asgncode(p->type, lev + 1);
+        -:   48:		/* fall thru */
+        -:   49:	case ENUM:
+    #####:   50:		if (ty->x.typeno == 0)
+    #####:   51:			ty->x.typeno = ++ntypes;
+    #####:   52:		if (lev > 0 && (*ty->u.sym->name < '0' || *ty->u.sym->name > '9'))
+    #####:   53:			dbxout(ty);
+    #####:   54:		break;
+        -:   55:		}
+        -:   56:	default:
+    #####:   57:		assert(0);
+        -:   58:	}
+        -:   59:}
+        -:   60:
+        -:   61:/* dbxout - output .stabs entry for type ty */
+function dbxout called 0 returned 0% blocks executed 0%
+    #####:   62:static void dbxout(Type ty) {
+    #####:   63:	ty = unqual(ty);
+    #####:   64:	if (!ty->x.printed) {
+    #####:   65:		int col = 0;
+    #####:   66:		print(".stabs \""), col += 8;
+    #####:   67:		if (ty->u.sym && !(isfunc(ty) || isarray(ty) || isptr(ty)))
+    #####:   68:			print("%s", ty->u.sym->name), col += strlen(ty->u.sym->name);
+    #####:   69:		print(":%c", isstruct(ty) || isenum(ty) ? 'T' : 't'), col += 2;
+    #####:   70:		emittype(ty, 0, col);
+    #####:   71:		print("\",%d,0,0,0\n", N_LSYM);
+        -:   72:	}
+        -:   73:}
+        -:   74:
+        -:   75:/* dbxtype - emit a stabs entry for type ty, return type code */
+function dbxtype called 0 returned 0% blocks executed 0%
+    #####:   76:static int dbxtype(Type ty) {
+    #####:   77:	asgncode(ty, 0);
+    #####:   78:	dbxout(ty);
+    #####:   79:	return ty->x.typeno;
+        -:   80:}
+        -:   81:
+        -:   82:/*
+        -:   83: * emittype - emit ty's type number, emitting its definition if necessary.
+        -:   84: * Returns the output column number after emission; col is the approximate
+        -:   85: * output column before emission and is used to emit continuation lines for long
+        -:   86: * struct, union, and enum types. Continuations are not emitted for other types,
+        -:   87: * even if the definition is long. lev is the depth of calls to emittype.
+        -:   88: */
+function emittype called 0 returned 0% blocks executed 0%
+    #####:   89:static int emittype(Type ty, int lev, int col) {
+    #####:   90:	int tc = ty->x.typeno;
+        -:   91:
+    #####:   92:	if (isconst(ty) || isvolatile(ty)) {
+    #####:   93:		col = emittype(ty->type, lev, col);
+    #####:   94:		ty->x.typeno = ty->type->x.typeno;
+    #####:   95:		ty->x.printed = 1;
+    #####:   96:		return col;
+        -:   97:	}
+    #####:   98:	if (tc == 0) {
+    #####:   99:		ty->x.typeno = tc = ++ntypes;
+        -:  100:/*              fprint(2,"`%t'=%d\n", ty, tc); */
+        -:  101:	}
+    #####:  102:	print("%d", tc), col += 3;
+    #####:  103:	if (ty->x.printed)
+    #####:  104:		return col;
+    #####:  105:	ty->x.printed = 1;
+    #####:  106:	switch (ty->op) {
+        -:  107:	case VOID:	/* void is defined as itself */
+    #####:  108:		print("=%d", tc), col += 1+3;
+    #####:  109:		break;
+        -:  110:	case INT:
+    #####:  111:		if (ty == chartype)	/* plain char is a subrange of itself */
+    #####:  112:			print("=r%d;%d;%d;", tc, ty->u.sym->u.limits.min.i, ty->u.sym->u.limits.max.i),
+        -:  113:				col += 2+3+2*2.408*ty->size+2;
+        -:  114:		else			/* other signed ints are subranges of int */
+    #####:  115:			print("=r1;%D;%D;", ty->u.sym->u.limits.min.i, ty->u.sym->u.limits.max.i),
+        -:  116:				col += 4+2*2.408*ty->size+2;
+    #####:  117:		break;
+        -:  118:	case UNSIGNED:
+    #####:  119:		if (ty == chartype)	/* plain char is a subrange of itself */
+    #####:  120:			print("=r%d;0;%u;", tc, ty->u.sym->u.limits.max.i),
+        -:  121:				col += 2+3+2+2.408*ty->size+1;
+        -:  122:		else			/* other signed ints are subranges of int */
+    #####:  123:			print("=r1;0;%U;", ty->u.sym->u.limits.max.i),
+        -:  124:				col += 4+2.408*ty->size+1;
+    #####:  125:		break;
+        -:  126:	case FLOAT:	/* float, double, long double get sizes, not ranges */
+    #####:  127:		print("=r1;%d;0;", ty->size), col += 4+1+3;
+    #####:  128:		break;
+        -:  129:	case POINTER:
+    #####:  130:		print("=*"), col += 2;
+    #####:  131:		col = emittype(ty->type, lev + 1, col);
+    #####:  132:		break;
+        -:  133:	case FUNCTION:
+    #####:  134:		print("=f"), col += 2;
+    #####:  135:		col = emittype(ty->type, lev + 1, col);
+    #####:  136:		break;
+        -:  137:	case ARRAY:	/* array includes subscript as an int range */
+    #####:  138:		if (ty->size && ty->type->size)
+    #####:  139:			print("=ar1;0;%d;", ty->size/ty->type->size - 1), col += 7+3+1;
+        -:  140:		else
+    #####:  141:			print("=ar1;0;-1;"), col += 10;
+    #####:  142:		col = emittype(ty->type, lev + 1, col);
+    #####:  143:		break;
+        -:  144:	case STRUCT: case UNION: {
+    #####:  145:		Field p;
+    #####:  146:		if (!ty->u.sym->defined) {
+    #####:  147:			print("=x%c%s:", ty->op == STRUCT ? 's' : 'u', ty->u.sym->name);
+    #####:  148:			col += 2+1+strlen(ty->u.sym->name)+1;
+    #####:  149:			break;
+        -:  150:		}
+    #####:  151:		if (lev > 0 && (*ty->u.sym->name < '0' || *ty->u.sym->name > '9')) {
+    #####:  152:			ty->x.printed = 0;
+    #####:  153:			break;
+        -:  154:		}
+    #####:  155:		print("=%c%d", ty->op == STRUCT ? 's' : 'u', ty->size), col += 1+1+3;
+    #####:  156:		for (p = fieldlist(ty); p; p = p->link) {
+    #####:  157:			if (p->name)
+    #####:  158:				print("%s:", p->name), col += strlen(p->name)+1;
+        -:  159:			else
+    #####:  160:				print(":"), col += 1;
+    #####:  161:			col = emittype(p->type, lev + 1, col);
+    #####:  162:			if (p->lsb)
+    #####:  163:				print(",%d,%d;", 8*p->offset +
+        -:  164:					(IR->little_endian ? fieldright(p) : fieldleft(p)),
+        -:  165:					fieldsize(p));
+        -:  166:			else
+    #####:  167:				print(",%d,%d;", 8*p->offset, 8*p->type->size);
+    #####:  168:			col += 1+3+1+3+1;	/* accounts for ,%d,%d; */
+    #####:  169:			if (col >= 80 && p->link) {
+    #####:  170:				print("\\\\\",%d,0,0,0\n.stabs \"", N_LSYM);
+    #####:  171:				col = 8;
+        -:  172:			}
+        -:  173:		}
+    #####:  174:		print(";"), col += 1;
+    #####:  175:		break;
+        -:  176:		}
+        -:  177:	case ENUM: {
+    #####:  178:		Symbol *p;
+    #####:  179:		if (lev > 0 && (*ty->u.sym->name < '0' || *ty->u.sym->name > '9')) {
+    #####:  180:			ty->x.printed = 0;
+    #####:  181:			break;
+        -:  182:		}
+    #####:  183:		print("=e"), col += 2;
+    #####:  184:		for (p = ty->u.sym->u.idlist; *p; p++) {
+    #####:  185:			print("%s:%d,", (*p)->name, (*p)->u.value), col += strlen((*p)->name)+3;
+    #####:  186:			if (col >= 80 && p[1]) {
+    #####:  187:				print("\\\\\",%d,0,0,0\n.stabs \"", N_LSYM);
+    #####:  188:				col = 8;
+        -:  189:			}
+        -:  190:		}
+    #####:  191:		print(";"), col += 1;
+    #####:  192:		break;
+        -:  193:		}
+        -:  194:	default:
+    #####:  195:		assert(0);
+        -:  196:	}
+    #####:  197:	return col;
+        -:  198:}
+        -:  199:
+        -:  200:/* stabblock - output a stab entry for '{' or '}' at level lev */
+function stabblock called 0 returned 0% blocks executed 0%
+    #####:  201:void stabblock(int brace, int lev, Symbol *p) {
+    #####:  202:	if (brace == '{')
+    #####:  203:		while (*p)
+    #####:  204:			stabsym(*p++);
+    #####:  205:	if (IR == &sparcIR)
+    #####:  206:		print(".stabd 0x%x,0,%d\n", brace == '{' ? N_LBRAC : N_RBRAC, lev);
+        -:  207:	else {
+    #####:  208:		int lab = genlabel(1);
+    #####:  209:		print(".stabn 0x%x,0,%d,%s%d-%s\n", brace == '{' ? N_LBRAC : N_RBRAC, lev,
+        -:  210:			stabprefix, lab, cfunc->x.name);
+    #####:  211:		print("%s%d:\n", stabprefix, lab);
+        -:  212:	}
+        -:  213:}
+        -:  214:
+        -:  215:/* stabinit - initialize stab output */
+function stabinit called 0 returned 0% blocks executed 0%
+    #####:  216:void stabinit(char *file, int argc, char *argv[]) {
+        -:  217:	typedef void (*Closure)(Symbol, void *);
+        -:  218:	extern char *getcwd(char *, size_t);
+        -:  219:
+    #####:  220:	print(".stabs \"lcc4_compiled.\",0x%x,0,0,0\n", N_OPT);
+    #####:  221:	if (file && *file) {
+    #####:  222:		char buf[1024], *cwd = getcwd(buf, sizeof buf);
+    #####:  223:		if (cwd)
+    #####:  224:			print(".stabs \"%s/\",0x%x,0,3,%stext0\n", cwd, N_SO, stabprefix);
+    #####:  225:		print(".stabs \"%s\",0x%x,0,3,%stext0\n", file, N_SO, stabprefix);
+    #####:  226:		(*IR->segment)(CODE);
+    #####:  227:		print("%stext0:\n", stabprefix, N_SO);
+    #####:  228:		currentfile = file;
+        -:  229:	}
+    #####:  230:	dbxtype(inttype);
+    #####:  231:	dbxtype(chartype);
+    #####:  232:	dbxtype(doubletype);
+    #####:  233:	dbxtype(floattype);
+    #####:  234:	dbxtype(longdouble);
+    #####:  235:	dbxtype(longtype);
+    #####:  236:	dbxtype(longlong);
+    #####:  237:	dbxtype(shorttype);
+    #####:  238:	dbxtype(signedchar);
+    #####:  239:	dbxtype(unsignedchar);
+    #####:  240:	dbxtype(unsignedlong);
+    #####:  241:	dbxtype(unsignedlonglong);
+    #####:  242:	dbxtype(unsignedshort);
+    #####:  243:	dbxtype(unsignedtype);
+    #####:  244:	dbxtype(voidtype);
+    #####:  245:	foreach(types, GLOBAL, (Closure)stabtype, NULL);
+        -:  246:}
+        -:  247:
+        -:  248:/* stabline - emit stab entry for source coordinate *cp */
+function stabline called 0 returned 0% blocks executed 0%
+    #####:  249:void stabline(Coordinate *cp) {
+    #####:  250:	if (cp->file && cp->file != currentfile) {
+    #####:  251:		int lab = genlabel(1);
+    #####:  252:		print(".stabs \"%s\",0x%x,0,0,%s%d\n", cp->file, N_SOL, stabprefix, lab);
+    #####:  253:		print("%s%d:\n", stabprefix, lab);
+    #####:  254:		currentfile = cp->file;
+        -:  255:	}
+    #####:  256:	if (IR == &sparcIR)
+    #####:  257:		print(".stabd 0x%x,0,%d\n", N_SLINE, cp->y);
+        -:  258:	else {
+    #####:  259:		int lab = genlabel(1);
+    #####:  260:		print(".stabn 0x%x,0,%d,%s%d-%s\n", N_SLINE, cp->y,
+        -:  261:			stabprefix, lab, cfunc->x.name);
+    #####:  262:		print("%s%d:\n", stabprefix, lab);
+        -:  263:	}
+        -:  264:}
+        -:  265:
+        -:  266:/* stabsym - output a stab entry for symbol p */
+function stabsym called 0 returned 0% blocks executed 0%
+    #####:  267:void stabsym(Symbol p) {
+    #####:  268:	int code, tc, sz = p->type->size;
+        -:  269:
+    #####:  270:	if (p->generated || p->computed)
+    #####:  271:		return;
+    #####:  272:	if (isfunc(p->type)) {
+    #####:  273:		print(".stabs \"%s:%c%d\",%d,0,0,%s\n", p->name,
+        -:  274:			p->sclass == STATIC ? 'f' : 'F', dbxtype(freturn(p->type)),
+        -:  275:			N_FUN, p->x.name);
+    #####:  276:		return;
+        -:  277:	}
+    #####:  278:	if (!IR->wants_argb && p->scope == PARAM && p->structarg) {
+    #####:  279:		assert(isptr(p->type) && isstruct(p->type->type));
+    #####:  280:		tc = dbxtype(p->type->type);
+    #####:  281:		sz = p->type->type->size;
+        -:  282:	} else
+    #####:  283:		tc = dbxtype(p->type);
+    #####:  284:	if (p->sclass == AUTO && p->scope == GLOBAL || p->sclass == EXTERN) {
+    #####:  285:		print(".stabs \"%s:G", p->name);
+    #####:  286:		code = N_GSYM;
+    #####:  287:	} else if (p->sclass == STATIC) {
+    #####:  288:		print(".stabs \"%s:%c%d\",%d,0,0,%s\n", p->name, p->scope == GLOBAL ? 'S' : 'V',
+        -:  289:			tc, p->u.seg == BSS ? N_LCSYM : N_STSYM, p->x.name);
+    #####:  290:		return;
+    #####:  291:	} else if (p->sclass == REGISTER) {
+    #####:  292:		if (p->x.regnode) {
+    #####:  293:			int r = p->x.regnode->number;
+    #####:  294:			if (p->x.regnode->set == FREG)
+    #####:  295:				r += 32;	/* floating point */
+    #####:  296:				print(".stabs \"%s:%c%d\",%d,0,", p->name,
+        -:  297:					p->scope == PARAM ? 'P' : 'r', tc, N_RSYM);
+    #####:  298:			print("%d,%d\n", sz, r);
+        -:  299:		}
+    #####:  300:		return;
+    #####:  301:	} else if (p->scope == PARAM) {
+    #####:  302:		print(".stabs \"%s:p", p->name);
+    #####:  303:		code = N_PSYM;
+    #####:  304:	} else if (p->scope >= LOCAL) {
+    #####:  305:		print(".stabs \"%s:", p->name);
+    #####:  306:		code = N_LSYM;
+        -:  307:	} else
+    #####:  308:		assert(0);
+    #####:  309:	print("%d\",%d,0,0,%s\n", tc, code,
+        -:  310:		p->scope >= PARAM && p->sclass != EXTERN ? p->x.name : "0");
+        -:  311:}
+        -:  312:
+        -:  313:/* stabtype - output a stab entry for type *p */
+function stabtype called 0 returned 0% blocks executed 0%
+    #####:  314:void stabtype(Symbol p) {
+    #####:  315:	if (p->type) {
+    #####:  316:		if (p->sclass == 0)
+    #####:  317:			dbxtype(p->type);
+    #####:  318:		else if (p->sclass == TYPEDEF)
+    #####:  319:			print(".stabs \"%s:t%d\",%d,0,0,0\n", p->name, dbxtype(p->type), N_LSYM);
+        -:  320:	}
+        -:  321:}
+        -:  322:
+        -:  323:/* stabend - finalize a function */
+function stabfend called 0 returned 0% blocks executed 0%
+    #####:  324:void stabfend(Symbol p, int lineno) {}
+        -:  325:
+        -:  326:/* stabend - finalize stab output */
+function stabend called 0 returned 0% blocks executed 0%
+    #####:  327:void stabend(Coordinate *cp, Symbol p, Coordinate **cpp, Symbol *sp, Symbol *stab) {
+    #####:  328:	(*IR->segment)(CODE);
+    #####:  329:	print(".stabs \"\", %d, 0, 0,%setext\n", N_SO, stabprefix);
+    #####:  330:	print("%setext:\n", stabprefix);
+        -:  331:}

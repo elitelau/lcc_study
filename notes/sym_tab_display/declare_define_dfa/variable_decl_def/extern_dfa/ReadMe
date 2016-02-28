@@ -1,0 +1,23 @@
+[extern global]: s1
+[extern local]: s2
+
+various dfa:
+
+. extern global dfa
+  s1->s1;   // !! cause type merge, see redeclaration rules.
+            // refer to case: variable_decl_def/global_decl_def_dfa/redecl_rules/normal_redecl
+  s1->s2;   // !! local.alias = global, id in statement refers to the symbol in `globals' table.
+            //    see implementation of idtree().
+
+  variations:
+  (1) s1: auto global
+  (2) s1: static global
+
+. extern local dfa
+  s2->s2;  //  !! local type merge, symbol stores in `externals' table.
+           //     there are two scenarios: the two extern locals within a function and not.
+  s2->s1;  //  !! relocate
+
+. external global redeclaration dfa
+  please refer to redeclaration rules
+  // refer to case: variable_decl_def/global_decl_def_dfa/redecl_rules/normal_redecl

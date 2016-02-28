@@ -1,0 +1,56 @@
+////////////////////////////////////////////////////////////////////////////////
+// Generate the dot file for drawing semantic structure of statements
+
+// File name: test.c
+// Line number: 14
+////////////////////////////////////////////////////////////////////////////////
+
+digraph semantic_dag  {
+    node [color=lightblue2, style=filled];
+
+    v1 [label="CALLI int"];
+    v2 [label="RIGHT ptr->int func(ptr->const char,...)"];
+    v1 -> v2
+
+    v3 [label="ARGP ptr->char"];
+    v4 [label="ADDRGP ptr->int func(ptr->const char,...)\n\[printf\]", shape=box];
+    v2 -> v3
+    v2 -> v4
+
+    v5 [label="COND ptr->char"];
+    v6 [label="ARGP ptr->const char"];
+    v3 -> v5
+    v3 -> v6
+
+    v7 [label="NEU int"];
+    v8 [label="RIGHT ptr->char"];
+    v5 -> v7
+    v5 -> v8
+
+    v9 [label="ADDRGP ptr->const char\n\[gen\]", shape=box];
+    v6 -> v9
+
+    v10 [label="CVPU unsigned int"];
+    v11 [label="CNSTU unsigned int\n\(0\)", shape=box];
+    v7 -> v10
+    v7 -> v11
+
+    v12 [label="ASGNP ptr->char"];
+    v13 [label="ASGNP ptr->char"];
+    v8 -> v12
+    v8 -> v13
+
+    v14 [label="ADDRGP ptr->int func(void)\n\[f\]", shape=box];
+    v10 -> v14
+
+    v15 [label="ADDRLP ptr->ptr->char\n\[gen\]", shape=box];
+    v16 [label="ADDRGP ptr->char\n\[gen\]", shape=box];
+    v12 -> v15
+    v12 -> v16
+
+    v17 [label="ADDRLP ptr->ptr->char\n\[gen\]", shape=box];
+    v18 [label="ADDRGP ptr->char\n\[gen\]", shape=box];
+    v13 -> v17
+    v13 -> v18
+
+}

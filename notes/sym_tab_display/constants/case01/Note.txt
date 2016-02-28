@@ -1,0 +1,13 @@
+constant() function is called by 5 times:
+   3 times from intconst();
+                  |-- 2 times in listnodes(), when enter "case ARG:", with value 4 for size & align
+                  |-- 1 times in docall(), for argoffset which with an even value maybe power of 2
+                        with value 4 maybe.
+   2 times from listnodes();  // there are CNST trees for line3, line9
+
+   integer constant analysis:
+   > 13: int, line3
+     7:  int, line9
+     4, 0: size & alignment of integer type, and argoffset
+
+   > there is no u.c.loc is used, since cvtconst() is not used.

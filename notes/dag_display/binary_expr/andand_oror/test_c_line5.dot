@@ -1,0 +1,71 @@
+////////////////////////////////////////////////////////////////////////////////
+// Generate the dot file for drawing semantic structure of statements
+
+// File name: test.c
+// Line number: 5
+////////////////////////////////////////////////////////////////////////////////
+
+digraph semantic_dag  {
+    node [color=lightblue2, style=filled];
+
+    v1 [label="ASGNI int"];
+    v2 [label="ADDRLP ptr->int\n\[d\]", shape=box];
+    v3 [label="COND int\n\[gen:5\]"];
+    v1 -> v2
+    v1 -> v3
+
+    v4 [label="OR int"];
+    v5 [label="RIGHT int"];
+    v3 -> v4
+    v3 -> v5
+
+    v6 [label="NEI int"];
+    v7 [label="OR int"];
+    v4 -> v6
+    v4 -> v7
+
+    v8 [label="ASGNI int"];
+    v9 [label="ASGNI int"];
+    v5 -> v8
+    v5 -> v9
+
+    v10 [label="INDIRI int"];
+    v11 [label="CNSTI int\n\(0\)", shape=box];
+    v6 -> v10
+    v6 -> v11
+
+    v12 [label="NEI int"];
+    v13 [label="NEI int"];
+    v7 -> v12
+    v7 -> v13
+
+    v14 [label="ADDRLP ptr->int\n\[gen:5\]", shape=box];
+    v15 [label="CNSTI int\n\(1\)", shape=box];
+    v8 -> v14
+    v8 -> v15
+
+    v16 [label="ADDRLP ptr->int\n\[gen:5\]", shape=box];
+    v17 [label="CNSTI int\n\(0\)", shape=box];
+    v9 -> v16
+    v9 -> v17
+
+    v18 [label="ADDRLP ptr->int\n\[a\]", shape=box];
+    v10 -> v18
+
+    v19 [label="INDIRI int"];
+    v20 [label="CNSTI int\n\(0\)", shape=box];
+    v12 -> v19
+    v12 -> v20
+
+    v21 [label="INDIRI int"];
+    v22 [label="CNSTI int\n\(0\)", shape=box];
+    v13 -> v21
+    v13 -> v22
+
+    v23 [label="ADDRLP ptr->int\n\[b\]", shape=box];
+    v19 -> v23
+
+    v24 [label="ADDRLP ptr->int\n\[c\]", shape=box];
+    v21 -> v24
+
+}

@@ -1,0 +1,20 @@
+1. decl()                               // parse int f(int a, int b)
+     |-- specifier()                    // parse int 
+     |-- dclr()
+          |--dclr1()
+               |                        // before run to <concreate function>
+               |                        // parse int f
+               |-- <concreate function>
+                           |
+                           |--parameters()
+                                  |--dclr()
+                                  |   |--dclr1()  // parse int f(int a,
+                                  |
+                                  |--dclr()
+                                      |--dclr1()  // parse int f(int a, int b
+                                                  // note: the last ')' is not parsed!!
+
+    totally, dclr1() is called by 3 times that is also verified by code coverage applying.
+
+    condition "level > PARAM" has never reached!
+

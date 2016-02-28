@@ -1,0 +1,241 @@
+        -:    0:Source:src/main.c
+        -:    0:Graph:lcc/main.gcno
+        -:    0:Data:lcc/main.gcda
+        -:    0:Runs:1
+        -:    0:Programs:1
+        -:    1:#include "c.h"
+        -:    2:
+        -:    3:static char rcsid[] = "$Name: v4_1 $($Id: main.nw,v 4.17 1997/09/25 23:07:49 drh Exp $)";
+        -:    4:
+        -:    5:static void typestab(Symbol, void *);
+        -:    6:
+        -:    7:static void stabline(Coordinate *);
+        -:    8:static void stabend(Coordinate *, Symbol, Coordinate **, Symbol *, Symbol *);
+        -:    9:Interface *IR = NULL;
+        -:   10:
+        -:   11:int Aflag;		/* >= 0 if -A specified */
+        -:   12:int Pflag;		/* != 0 if -P specified */
+        -:   13:int glevel;		/* == [0-9] if -g[0-9] specified */
+        -:   14:int xref;		/* != 0 for cross-reference data */
+        -:   15:Symbol YYnull;		/* _YYnull  symbol if -n or -nvalidate specified */
+        -:   16:Symbol YYcheck;		/* _YYcheck symbol if -nvalidate,check specified */
+        -:   17:
+        -:   18:static char *comment;
+        -:   19:static Interface stabIR;
+        -:   20:static char *currentfile;       /* current file name */
+        -:   21:static int currentline;		/* current line number */
+        -:   22:static FILE *srcfp;		/* stream for current file, if non-NULL */
+        -:   23:static int srcpos;		/* position of srcfp, if srcfp is non-NULL */
+function main called 1 returned 100% blocks executed 51%
+        1:   24:int main(int argc, char *argv[]) {
+        1:   25:	int i, j;
+        5:   26:	for (i = argc - 1; i > 0; i--)
+        5:   27:		if (strncmp(argv[i], "-target=", 8) == 0)
+        1:   28:			break;
+        1:   29:	if (i > 0) {
+        1:   30:		char *s = strchr(argv[i], '\\');
+        1:   31:		if (s != NULL)
+    #####:   32:			*s = '/';
+        7:   33:		for (j = 0; bindings[j].name && bindings[j].ir; j++)
+        7:   34:			if (strcmp(&argv[i][8], bindings[j].name) == 0) {
+        1:   35:				IR = bindings[j].ir;
+        1:   36:				break;
+        -:   37:			}
+        1:   38:		if (s != NULL)
+    #####:   39:			*s = '\\';
+        -:   40:	}
+        1:   41:	if (!IR) {
+    #####:   42:		fprint(stderr, "%s: unknown target", argv[0]);
+    #####:   43:		if (i > 0)
+    #####:   44:			fprint(stderr, " `%s'", &argv[i][8]);
+    #####:   45:		fprint(stderr, "; must specify one of\n");
+    #####:   46:		for (i = 0; bindings[i].name; i++)
+    #####:   47:			fprint(stderr, "\t-target=%s\n", bindings[i].name);
+    #####:   48:		exit(EXIT_FAILURE);
+        -:   49:	}
+        1:   50:	init(argc, argv);
+        1:   51:	t = gettok();
+        1:   52:	(*IR->progbeg)(argc, argv);
+        1:   53:	if (glevel && IR->stabinit)
+    #####:   54:		(*IR->stabinit)(firstfile, argc, argv);
+        -:   55:    #include "print_dag.h"
+        -:   56:    // added by liujian, 2011.12.22
+        1:   57:    init_symbol_dump_file();
+        1:   58:	program();
+        1:   59:	if (events.end)
+    #####:   60:		apply(events.end, NULL, NULL);
+        1:   61:	memset(&events, 0, sizeof events);
+        1:   62:	if (glevel || xref) {
+    #####:   63:		Symbol symroot = NULL;
+    #####:   64:		Coordinate src;
+    #####:   65:		foreach(types,       GLOBAL, typestab, &symroot);
+    #####:   66:		foreach(identifiers, GLOBAL, typestab, &symroot);
+    #####:   67:		src.file = firstfile;
+    #####:   68:		src.x = 0;
+    #####:   69:		src.y = lineno;
+    #####:   70:		if ((glevel > 2 || xref) && IR->stabend)
+    #####:   71:			(*IR->stabend)(&src, symroot,
+        -:   72:				ltov(&loci,    PERM),
+        -:   73:				ltov(&symbols, PERM), NULL);
+    #####:   74:		else if (IR->stabend)
+    #####:   75:			(*IR->stabend)(&src, NULL, NULL, NULL, NULL);
+        -:   76:	}
+        1:   77:	finalize();
+        -:   78:    // added by liujian
+        1:   79:    print_global_symbols();
+        1:   80:	(*IR->progend)();
+        1:   81:	deallocate(PERM);
+        -:   82:
+        1:   83:	return errcnt > 0;
+        -:   84:}
+        -:   85:/* main_init - process program arguments */
+function main_init called 2 returned 100% blocks executed 44%
+        2:   86:void main_init(int argc, char *argv[]) {
+        2:   87:	char *infile = NULL, *outfile = NULL;
+        2:   88:	int i;
+        2:   89:	static int inited;
+        -:   90:
+        2:   91:	if (inited)
+        1:   92:		return;
+        1:   93:	inited = 1;
+        1:   94:	type_init(argc, argv);
+        6:   95:	for (i = 1; i < argc; i++)
+        5:   96:		if (strcmp(argv[i], "-g") == 0 || strcmp(argv[i], "-g2") == 0)
+    #####:   97:			glevel = 2;
+        5:   98:		else if (strncmp(argv[i], "-g", 2) == 0) {	/* -gn[,x] */
+    #####:   99:			char *p = strchr(argv[i], ',');
+    #####:  100:			glevel = atoi(argv[i]+2);
+    #####:  101:			if (p) {
+    #####:  102:				comment = p + 1;
+    #####:  103:				if (glevel == 0)
+    #####:  104:					glevel = 1;
+    #####:  105:				if (stabIR.stabline == NULL) {
+    #####:  106:					stabIR.stabline = IR->stabline;
+    #####:  107:					stabIR.stabend = IR->stabend;
+    #####:  108:					IR->stabline = stabline;
+    #####:  109:					IR->stabend = stabend;
+        -:  110:				}
+        -:  111:			}	
+        5:  112:		} else if (strcmp(argv[i], "-x") == 0)
+    #####:  113:			xref++;
+        5:  114:		else if (strcmp(argv[i], "-A") == 0) {
+        2:  115:			++Aflag;
+        3:  116:		} else if (strcmp(argv[i], "-P") == 0)
+    #####:  117:			Pflag++;
+        3:  118:		else if (strcmp(argv[i], "-w") == 0)
+    #####:  119:			wflag++;
+        3:  120:		else if (strcmp(argv[i], "-n") == 0) {
+    #####:  121:			if (!YYnull) {
+    #####:  122:				YYnull = install(string("_YYnull"), &globals, GLOBAL, PERM);
+    #####:  123:				YYnull->type = func(voidptype, NULL, 1);
+    #####:  124:				YYnull->sclass = EXTERN;
+    #####:  125:				(*IR->defsymbol)(YYnull);
+        -:  126:			}
+        3:  127:		} else if (strncmp(argv[i], "-n", 2) == 0) {	/* -nvalid[,check] */
+    #####:  128:			char *p = strchr(argv[i], ',');
+    #####:  129:			if (p) {
+    #####:  130:				YYcheck = install(string(p+1), &globals, GLOBAL, PERM);
+    #####:  131:				YYcheck->type = func(voidptype, NULL, 1);
+    #####:  132:				YYcheck->sclass = EXTERN;
+    #####:  133:				(*IR->defsymbol)(YYcheck);
+    #####:  134:				p = stringn(argv[i]+2, p - (argv[i]+2));
+        -:  135:			} else
+    #####:  136:				p = string(argv[i]+2);
+    #####:  137:			YYnull = install(p, &globals, GLOBAL, PERM);
+    #####:  138:			YYnull->type = func(voidptype, NULL, 1);
+    #####:  139:			YYnull->sclass = EXTERN;
+    #####:  140:			(*IR->defsymbol)(YYnull);
+        3:  141:		} else if (strcmp(argv[i], "-v") == 0)
+    #####:  142:			fprint(stderr, "%s %s\n", argv[0], rcsid);
+        3:  143:		else if (strncmp(argv[i], "-s", 2) == 0)
+    #####:  144:			density = strtod(&argv[i][2], NULL);
+        3:  145:		else if (strncmp(argv[i], "-errout=", 8) == 0) {
+    #####:  146:			FILE *f = fopen(argv[i]+8, "w");
+    #####:  147:			if (f == NULL) {
+    #####:  148:				fprint(stderr, "%s: can't write errors to `%s'\n", argv[0], argv[i]+8);
+    #####:  149:				exit(EXIT_FAILURE);
+        -:  150:			}
+    #####:  151:			fclose(f);
+    #####:  152:			f = freopen(argv[i]+8, "w", stderr);
+    #####:  153:			assert(f);
+        3:  154:		} else if (strncmp(argv[i], "-e", 2) == 0) {
+    #####:  155:			int x;
+    #####:  156:			if ((x = strtol(&argv[i][2], NULL, 0)) > 0)
+    #####:  157:				errlimit = x;
+        3:  158:		} else if (strncmp(argv[i], "-little_endian=", 15) == 0)
+    #####:  159:			IR->little_endian = argv[i][15] - '0';
+        3:  160:		else if (strncmp(argv[i], "-mulops_calls=", 18) == 0)
+    #####:  161:			IR->mulops_calls = argv[i][18] - '0';
+        3:  162:		else if (strncmp(argv[i], "-wants_callb=", 13) == 0)
+    #####:  163:			IR->wants_callb = argv[i][13] - '0';
+        3:  164:		else if (strncmp(argv[i], "-wants_argb=", 12) == 0)
+    #####:  165:			IR->wants_argb = argv[i][12] - '0';
+        3:  166:		else if (strncmp(argv[i], "-left_to_right=", 15) == 0)
+    #####:  167:			IR->left_to_right = argv[i][15] - '0';
+        3:  168:		else if (strncmp(argv[i], "-wants_dag=", 11) == 0)
+    #####:  169:			IR->wants_dag = argv[i][11] - '0';
+        3:  170:		else if (*argv[i] != '-' || strcmp(argv[i], "-") == 0) {
+        2:  171:			if (infile == NULL)
+        1:  172:				infile = argv[i];
+        1:  173:			else if (outfile == NULL)
+        1:  174:				outfile = argv[i];
+        -:  175:		}
+        -:  176:
+        1:  177:	if (infile != NULL && strcmp(infile, "-") != 0
+        -:  178:	&& freopen(infile, "r", stdin) == NULL) {
+    #####:  179:		fprint(stderr, "%s: can't read `%s'\n", argv[0], infile);
+    #####:  180:		exit(EXIT_FAILURE);
+        -:  181:	}
+        1:  182:	if (outfile != NULL && strcmp(outfile, "-") != 0
+        -:  183:	&& freopen(outfile, "w", stdout) == NULL) {
+    #####:  184:		fprint(stderr, "%s: can't write `%s'\n", argv[0], outfile);
+    #####:  185:		exit(EXIT_FAILURE);
+        -:  186:	}
+        -:  187:}
+        -:  188:/* typestab - emit stab entries for p */
+function typestab called 0 returned 0% blocks executed 0%
+    #####:  189:static void typestab(Symbol p, void *cl) {
+    #####:  190:	if (*(Symbol *)cl == 0 && p->sclass && p->sclass != TYPEDEF)
+    #####:  191:		*(Symbol *)cl = p;
+    #####:  192:	if ((p->sclass == TYPEDEF || p->sclass == 0) && IR->stabtype)
+    #####:  193:		(*IR->stabtype)(p);
+        -:  194:}
+        -:  195:
+        -:  196:/* stabline - emit source code for source coordinate *cp */
+function stabline called 0 returned 0% blocks executed 0%
+    #####:  197:static void stabline(Coordinate *cp) {
+    #####:  198:	if (cp->file && cp->file != currentfile) {
+    #####:  199:		if (srcfp)
+    #####:  200:			fclose(srcfp);
+    #####:  201:		currentfile = cp->file;
+    #####:  202:		srcfp = fopen(currentfile, "r");
+    #####:  203:		srcpos = 0;
+    #####:  204:		currentline = 0;
+        -:  205:	}
+    #####:  206:	if (currentline != cp->y && srcfp) {
+    #####:  207:		char buf[512];
+    #####:  208:		if (srcpos > cp->y) {
+    #####:  209:			rewind(srcfp);
+    #####:  210:			srcpos = 0;
+        -:  211:		}
+    #####:  212:		for ( ; srcpos < cp->y; srcpos++)
+    #####:  213:			if (fgets(buf, sizeof buf, srcfp) == NULL) {
+    #####:  214:				fclose(srcfp);
+    #####:  215:				srcfp = NULL;
+    #####:  216:				break;
+        -:  217:			}
+    #####:  218:		if (srcfp && srcpos == cp->y)
+    #####:  219:			print("%s%s", comment, buf);
+        -:  220:	}
+    #####:  221:	currentline = cp->y;
+    #####:  222:	if (stabIR.stabline)
+    #####:  223:		(*stabIR.stabline)(cp);
+        -:  224:}
+        -:  225:
+function stabend called 0 returned 0% blocks executed 0%
+    #####:  226:static void stabend(Coordinate *cp, Symbol p, Coordinate **cpp, Symbol *sp, Symbol *stab) {
+    #####:  227:	if (stabIR.stabend)
+    #####:  228:		(*stabIR.stabend)(cp, p, cpp, sp, stab);
+    #####:  229:	if (srcfp)
+    #####:  230:		fclose(srcfp);
+        -:  231:}

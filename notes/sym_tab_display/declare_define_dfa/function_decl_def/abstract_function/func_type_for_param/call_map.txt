@@ -1,0 +1,48 @@
+1. decl()                              // parse int f(int (*pf)(int, int), int a, int b)
+     |--specifier()                    // parse int 
+     |--dclr()
+     |    |--dclr1()
+     |         |                       // before run to <concreate function> 
+     |         |                       // parse int f  
+     |         |--<concreate function>                  
+     |                  |--enterscope()      
+     |                  |--paramters()     
+     |                  |    |--specifier()    // parse int f(int
+     |                  |  **|--dclr()   // !! note: the 3rd & 4th arguments are "NULL" and "1"
+     |                  |    |   |--dclr1()
+     |                  |    |        |--<abstract function>  // parse int f(int (
+     |                  |    |             |--dclr1()
+     |                  |    |             |   |-- // parse POINTER:                 
+     |                  |    |             |   |   // parse int f(int (*
+     |                  |    |             |   |--dclr1()
+     |                  |    |             |       |-- // parse ID: 
+     |                  |    |             |       |   // parse int f(int (*pf
+     |                  |    |             |       |
+     |                  |    |             |       |--<concreate function>
+     |                  |    |             |            |--enterscope()
+     |                  |    |             |            |--enterscope(), since level > PARAM
+     |                  |    |             |            |--paramters()
+     |                  |    |             |            |   |--dclr()
+     |                  |    |             |            |   |   |--dclr1() //int (*pf)(int, 
+     |                  |    |             |            |   |--dclr() 
+     |                  |    |             |            |       |--dclr1() //int (*pf)(int, int 
+     |                  |    |             |            |--exitparams(), since params == NULL 
+     |                  |    |             |                |--exitscope(), since level > PARAM
+     |                  |    |             |                |--exitscope()
+     |                  |    |             |-- // match ')', so parse: int f(int (*pf)(int, int)  
+     |                  |    |                               
+     |                  |    |--specifier()    // parse the type info of 2nd paramter, int
+     |                  |    |--dclr()         // parse: int f(int (*pf)(int, int), int a,
+     |                  |    |   |--dclr1()
+     |                  |    |--specifier()    // parse the type info of 3nd paramter, int
+     |                  |    |--dclr()         // parse: int f(int (*pf)(int, int), int a, int b
+     |                  |    |   |--dclr1()
+     |                  |--// return params for further use
+     |-- exitparams()
+           |--exitscope()
+
+    // totally, dclr1() is called by 8 times & dclr() is called up to 6 times,
+    // that is also verified by code coverage applying.
+
+    condition "level > PARAM" has been reached!
+

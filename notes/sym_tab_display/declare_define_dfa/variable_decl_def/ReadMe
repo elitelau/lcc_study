@@ -1,0 +1,4 @@
+extern_basic:  about extern declaration, special cases are extern in locals, 
+               and relocation problems.
+               see extern_basic/local_extern, extern_basic/redecl_extern 
+extern_corner: extern in locals & storage class reintroduced. 

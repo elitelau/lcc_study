@@ -1,0 +1,14 @@
+// test.c
+1   int f(void) {
+2     extern int a;
+3     return ++a;
+4   }
+5   
+6   int a;
+-------------------
+a is added to `externals symbol table, with extern scope, in line2.
+when declaration for a is visited again, relocate its symbol from `externals 
+table to `globals table.
+a.defined=1, when apply finalize() for finishing parse the source file.
+and a.ref=1.0 since it's visited by "++a;" statement.
+

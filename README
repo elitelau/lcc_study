@@ -1,0 +1,19 @@
+> how to use
+
+(1) make sure that lcc-4.1 is available
+(2) make sure that graphviz with header files and corresponding .lib are properly installed
+(3) replace lcc-4.1 with new files
+(4) make   # enable dumping dag by environment variable "LCC_DAG_DUMP_ENABLE"
+           # enable dumping syntax by environment variable "LCC_SYM_DUMP_ENABLE"
+(5) use lcc to compile some very simple c source codes
+
+> directory intro:
++ print_dag.c   // dumping intermediate DAG and syntax tree
++ print_dag.h  
++ makefile      // how to compile
++ run_rcc_coverage.sh   // integrate with gcov for tracing execution
++ notes/    // experienments on lcc when study book "Retargetable C compiler", listed by chapters
+    |-
++ intro_lcc_xxx.ppt  // ppt about study on lcc
+
+please contact with eligere.lau@gmail.com for problems encountered

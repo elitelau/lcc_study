@@ -1,0 +1,10 @@
+ID token can be varied into categories: typedef name, enumeration/struct/union type name, function/variable name.
+
+1. In C programming language, it's not allowed to define a variable or function whose name is identical with others. [no name conflicts between var/function]
+
+2. enumeration/struct/union type identifier is installed in `types' symbol table. 
+   [var/function coexists with a enum/struct identifier, with the same name]
+
+3. both typedef id and var/function id are installed in `identifiers' table.
+   [no name conflicts between typedef id and var/function]
+

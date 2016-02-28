@@ -1,0 +1,12 @@
+# 1 "main.c"
+# 1 "<built-in>"
+# 1 "<command line>"
+# 1 "main.c"
+
+
+"\x12" "3"
+
+int main() {
+  const char* s = "\x12" "3";
+  return 0;
+}

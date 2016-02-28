@@ -1,0 +1,691 @@
+        -:    0:Source:src/print_dag.c
+        -:    0:Graph:lcc/print_dag.gcno
+        -:    0:Data:lcc/print_dag.gcda
+        -:    0:Runs:1
+        -:    0:Programs:1
+        -:    1:#include "sglib.h"
+        -:    2:#include "c.h"
+        -:    3:#include "print_dag.h"
+        -:    4:#include <stdio.h>
+        -:    5:
+        -:    6:
+        -:    7:static void bfs_traverse_on_dag(Tree p, FILE* out_file);
+        -:    8:static void reset();
+        -:    9:
+        -:   10:typedef enum direction {
+        -:   11:   DIR_LEFT = 0,
+        -:   12:   DIR_RIGHT = 1
+        -:   13:} direction;
+        -:   14:
+function print_dag called 2 returned 100% blocks executed 11%
+        2:   15:void print_dag(struct tree* p) {
+        2:   16:   FILE* dag_print_file = 0;
+        2:   17:   static expr_dag_no_in_line = 1;
+        2:   18:   char  dag_name[DAG_NAME_LENGTH];
+        2:   19:   char  dag_print_file_name[260];
+        2:   20:   char* str = NULL;
+        -:   21:
+        2:   22:   if( NULL == p ) {
+    #####:   23:      return ;
+        -:   24:   }
+        -:   25:   
+        2:   26:   str = getenv("LCC_DAG_DUMP_ENABLE");
+        2:   27:   if( str && strcmp(str, "true") == 0 ) 
+        -:   28:      ;
+        -:   29:   else 
+    #####:   30:     return;
+        -:   31:
+        -:   32://   fprintf(stderr, "test ...\n");
+    #####:   33:   assert(file);
+        -:   34:   
+        -:   35:   // test.c_line100 => test_c_line100
+    #####:   36:   sprintf(dag_name, "%s_line%d", file, lineno);
+    #####:   37:   for( str = dag_name; *str != '\0'; ++str ) {
+    #####:   38:      if( *str == '.' ) {
+    #####:   39:         *str = '_';
+    #####:   40:         break;
+        -:   41:      }
+        -:   42:   }
+        -:   43:
+        -:   44://   fprintf(stderr, "test: dag_name = %s\n", dag_name);
+        -:   45://   fprintf(stderr, "test: prev_dag_name = %s\n", prev_dag_name);
+        -:   46:   
+    #####:   47:   if( strncmp(dag_name, 
+        -:   48:               prev_dag_name, 
+        -:   49:               (strlen(dag_name) < strlen(prev_dag_name) ? 
+        -:   50:                strlen(dag_name) : strlen(prev_dag_name))) == 0 
+        -:   51:      && 
+        -:   52:       strlen(prev_dag_name) > 0 ) 
+        -:   53:   {
+    #####:   54:       sprintf(dag_name + strlen(dag_name), "_%d", expr_dag_no_in_line++);
+        -:   55:   }
+        -:   56:   else {
+    #####:   57:       expr_dag_no_in_line = 1;
+    #####:   58:       memset(prev_dag_name, 0, DAG_NAME_LENGTH);
+    #####:   59:       strcpy(prev_dag_name, dag_name);
+        -:   60:   }
+        -:   61:
+    #####:   62:   str = getenv("LCC_DAG_DUMP_DIR");
+        -:   63:
+    #####:   64:   if( str ) {
+    #####:   65:      sprintf(dag_print_file_name, "%s/%s.dot", str, dag_name);
+        -:   66:   }
+        -:   67:   else {
+    #####:   68:      sprintf(dag_print_file_name, "%s.dot", dag_name);
+        -:   69:   }
+        -:   70:
+        -:   71://   fprintf(stderr, "test: %s\n", dag_print_file_name);
+    #####:   72:   dag_print_file = fopen(dag_print_file_name, "w" );
+        -:   73:   
+    #####:   74:   if( !dag_print_file )
+    #####:   75:      return;
+        -:   76:
+        -:   77:   // clear queue for next use
+    #####:   78:   reset();
+    #####:   79:   bfs_traverse_on_dag(p, dag_print_file);
+        -:   80:
+    #####:   81:   fclose(dag_print_file);
+        -:   82:}
+        -:   83:
+        -:   84:
+        -:   85:typedef struct vertex {
+        -:   86:   Tree   first;     // dag node
+        -:   87:   int    second;    // number of dag node
+        -:   88:} vertex;
+        -:   89:// typedef std::pair<Tree, int> vertex;
+        -:   90:
+        -:   91:typedef struct dllist {
+        -:   92:   vertex*   v;
+        -:   93:   struct dllist* next;
+        -:   94:   struct dllist* prev;
+        -:   95:} BFSQueue;
+        -:   96:
+        -:   97:#define BFSQUEUE_COMPARATOR(e1, e2) (e1->v == e2->v)
+        -:   98:
+        -:   99:SGLIB_DEFINE_DL_LIST_PROTOTYPES(BFSQueue, BFSQUEUE_COMPARATOR, prev, next);
+function sglib_BFSQueue_add called 0 returned 0% blocks executed 0%
+function sglib_BFSQueue_add_after called 0 returned 0% blocks executed 0%
+function sglib_BFSQueue_add_before called 0 returned 0% blocks executed 0%
+function sglib_BFSQueue_add_if_not_member called 0 returned 0% blocks executed 0%
+function sglib_BFSQueue_add_after_if_not_member called 0 returned 0% blocks executed 0%
+function sglib_BFSQueue_add_before_if_not_member called 0 returned 0% blocks executed 0%
+function sglib_BFSQueue_concat called 0 returned 0% blocks executed 0%
+function sglib_BFSQueue_delete called 0 returned 0% blocks executed 0%
+function sglib_BFSQueue_delete_if_member called 0 returned 0% blocks executed 0%
+function sglib_BFSQueue_is_member called 0 returned 0% blocks executed 0%
+function sglib_BFSQueue_find_member called 0 returned 0% blocks executed 0%
+function sglib_BFSQueue_get_first called 0 returned 0% blocks executed 0%
+function sglib_BFSQueue_get_last called 0 returned 0% blocks executed 0%
+function sglib_BFSQueue_sort called 0 returned 0% blocks executed 0%
+function sglib_BFSQueue_len called 0 returned 0% blocks executed 0%
+function sglib_BFSQueue_reverse called 0 returned 0% blocks executed 0%
+function sglib_BFSQueue_it_init_on_equal called 0 returned 0% blocks executed 0%
+function sglib_BFSQueue_it_init called 0 returned 0% blocks executed 0%
+function sglib_BFSQueue_it_current called 0 returned 0% blocks executed 0%
+function sglib_BFSQueue_it_next called 0 returned 0% blocks executed 0%
+    #####:  100:SGLIB_DEFINE_DL_LIST_FUNCTIONS(BFSQueue, BFSQUEUE_COMPARATOR, prev, next);
+        -:  101:
+        -:  102:static BFSQueue* popoff_node_list;
+        -:  103:static BFSQueue* popoff_node_list_tail;
+        -:  104:static BFSQueue* bfs_queue;
+        -:  105:static BFSQueue* bfs_queue_tail;
+        -:  106:
+function reset called 0 returned 0% blocks executed 0%
+    #####:  107:static void reset(void)  {
+    #####:  108:    BFSQueue*  que;
+    #####:  109:    struct sglib_BFSQueue_iterator  it;
+        -:  110:
+        -:  111:    // clear pop off node list
+    #####:  112:    for( que = sglib_BFSQueue_it_init(&it, popoff_node_list); 
+        -:  113:         que != NULL; 
+        -:  114:         que = sglib_BFSQueue_it_next(&it) )
+        -:  115:    {
+    #####:  116:        free(que->v);
+    #####:  117:        free(que);
+        -:  118:    }
+        -:  119:
+        -:  120:    // clear queue for breadth-first search
+    #####:  121:    assert( sglib_BFSQueue_len(bfs_queue) == 0 );
+    #####:  122:    for( que = sglib_BFSQueue_it_init(&it, bfs_queue); 
+        -:  123:         que != NULL; 
+        -:  124:         que = sglib_BFSQueue_it_next(&it) )
+        -:  125:    {
+    #####:  126:        free(que->v);
+        -:  127:        // !!! must not, in case of duplicate deletion
+        -:  128:        // free(que->v);
+        -:  129:    }
+        -:  130:
+    #####:  131:    popoff_node_list  = NULL;
+    #####:  132:    popoff_node_list_tail = NULL;
+    #####:  133:    bfs_queue  = NULL;
+    #####:  134:    bfs_queue_tail = NULL;
+        -:  135:}
+        -:  136:
+function is_fell_on_list called 0 returned 0% blocks executed 0%
+    #####:  137:static vertex* is_fell_on_list(Tree p, BFSQueue* que) {
+    #####:  138:    vertex*     v = NULL;
+    #####:  139:    BFSQueue*  item;
+    #####:  140:    struct sglib_BFSQueue_iterator  it;
+        -:  141:
+    #####:  142:    for( item = sglib_BFSQueue_it_init(&it, que); 
+        -:  143:         item != NULL; 
+        -:  144:         item = sglib_BFSQueue_it_next(&it) )
+        -:  145:    {
+    #####:  146:        if( item->v->first == p ) {
+    #####:  147:            v = item->v;
+    #####:  148:            break;
+        -:  149:        }
+        -:  150:    }
+        -:  151:
+    #####:  152:    return v;
+        -:  153:}
+        -:  154:
+function act_push_back called 0 returned 0% blocks executed 0%
+    #####:  155:static void act_push_back(BFSQueue** que, BFSQueue** que_tail, BFSQueue* item) {
+    #####:  156:    if( NULL == *que ) {
+    #####:  157:        sglib_BFSQueue_add_after(que, item);
+        -:  158:    }
+        -:  159:    else {
+    #####:  160:        sglib_BFSQueue_add_after(que_tail, item);
+        -:  161:    }
+    #####:  162:    *que_tail = item;
+        -:  163:}
+        -:  164:
+function act_pop_off called 0 returned 0% blocks executed 0%
+    #####:  165:static void act_pop_off(BFSQueue** que) {
+    #####:  166:    BFSQueue* item = *que;
+    #####:  167:    sglib_BFSQueue_delete(que, item);
+    #####:  168:    free(item); // !!! must
+        -:  169:}
+        -:  170:
+function start_to_generate_dot called 0 returned 0% blocks executed 0%
+    #####:  171:static void start_to_generate_dot(FILE* out_file) {
+    #####:  172:    fprintf( out_file, "////////////////////////////////////////////////////////////////////////////////\n" );
+    #####:  173:    fprintf( out_file, "// Generate the dot file for drawing semantic structure of statements\n\n" );
+    #####:  174:    fprintf( out_file, "// File name: %s\n", file );
+    #####:  175:    fprintf( out_file, "// Line number: %d\n", lineno );
+    #####:  176:    fprintf( out_file, "////////////////////////////////////////////////////////////////////////////////\n\n" );
+        -:  177:
+    #####:  178:    fprintf( out_file, "digraph semantic_dag  {\n" );
+        -:  179:
+        -:  180:    // set display format
+        -:  181:    // fprintf( out_file, "    size=\"6,6\";\n" );
+    #####:  182:    fprintf( out_file, "    node [color=lightblue2, style=filled];\n\n" );
+        -:  183:}
+        -:  184:
+function end_to_generate_dot called 0 returned 0% blocks executed 0%
+    #####:  185:static void end_to_generate_dot(FILE* out_file) {
+    #####:  186:    fprintf(out_file, "}\n");
+        -:  187:}
+        -:  188:
+        -:  189:static void generate_dot_for_vertex(vertex* v, FILE* out_file)
+function generate_dot_for_vertex called 0 returned 0% blocks executed 0%
+    #####:  190:{
+    #####:  191:    int display_in_box = 0;
+        -:  192://    fprintf(out_file, "v%d [label=\"%s\"];\n", v->second, );
+        -:  193:    
+    #####:  194:    fprintf(out_file, "    v%d [label=\"", v->second);
+        -:  195:    // fprint(out_file, "%s %t\"];\n", opname(v->first->op), v->first->type);
+    #####:  196:    fprint(out_file, "%s %t", opname(v->first->op), v->first->type);
+    #####:  197:    switch(generic(v->first->op)) {
+        -:  198:    case COND:
+    #####:  199:       if( v->first->u.sym ) {  
+        -:  200:          // tree for conditional expr have a generated symbol which stores the value of 
+        -:  201:          // 2nd or 3rd expression
+    #####:  202:          fprintf(out_file, "\\n\\[gen:%s\\]", v->first->u.sym->name);
+        -:  203:       }
+    #####:  204:       break;
+        -:  205:    case ADDRF:
+        -:  206:    case ADDRL:
+        -:  207:    case ADDRG:
+    #####:  208:       display_in_box = 1;
+        -:  209:       // in case of generated symbol for storage
+        -:  210:       // f ? 0 : 1;    two temporaries for storing 0, 1
+        -:  211:       // there are also generated symbols, for example:
+        -:  212:       // char *s = "hello world!";  a generated symbol to be attached in idtree
+    #####:  213:       if( v->first->u.sym->generated ) {
+    #####:  214:           if( v->first->u.sym->temporary ) {
+    #####:  215:              fprintf(out_file, "\\n\\[tmp:%s\\]", v->first->u.sym->name);
+        -:  216:           }
+        -:  217:           else {
+    #####:  218:              fprintf(out_file, "\\n\\[gen:%s\\]", v->first->u.sym->name);
+        -:  219:           }
+    #####:  220:           break;
+        -:  221:       }
+    #####:  222:       if( !isarray(unqual(v->first->u.sym->type)) )  { // !!!
+        -:  223:                                    // string literal is stored as an array of char
+    #####:  224:           fprintf(out_file, "\\n\\[%s\\]", v->first->u.sym->name);
+        -:  225:       }
+    #####:  226:       break;
+        -:  227:    case CNST:
+        -:  228:       {
+    #####:  229:       display_in_box = 1;
+        -:  230:
+        -:  231:       // floating constants
+    #####:  232:       if( v->first->type == doubletype || 
+        -:  233:           v->first->type == longdouble ||
+        -:  234:           v->first->type == floattype ) 
+        -:  235:       {  // ???? how to print long double
+    #####:  236:          if( floattype == v->first->type ) {
+    #####:  237:              fprintf(out_file, "\\n\\(%f\\)", (float)v->first->u.v.d);
+        -:  238:          }
+    #####:  239:          else if( doubletype == v->first->type ) {
+    #####:  240:              fprintf(out_file, "\\n\\(%g\\)", (double)v->first->u.v.d);
+        -:  241:          }
+        -:  242:          else {
+    #####:  243:              fprintf(out_file, "\\n\\(%Lg\\)", v->first->u.v.d);
+        -:  244:          }
+    #####:  245:          break;
+        -:  246:       }
+        -:  247:
+        -:  248:       // integer constants
+    #####:  249:       switch(v->first->type->op) {
+        -:  250:          case INT:
+    #####:  251:             fprintf(out_file, "\\n\\(%ld\\)", v->first->u.v.i);
+    #####:  252:             break;
+        -:  253:          case UNSIGNED:
+    #####:  254:             fprintf(out_file, "\\n\\(%lu\\)", v->first->u.v.u);
+        -:  255:             break;
+        -:  256:          default:
+    #####:  257:             break;
+        -:  258:       }
+        -:  259:
+        -:  260:       // ?? how to print a string literal, since its operation is: ADDRLP/ADDRGP
+        -:  261:       }
+    #####:  262:       break;
+        -:  263:    default:
+    #####:  264:       break;
+        -:  265:    }
+        -:  266:
+    #####:  267:    if( display_in_box ) {
+    #####:  268:       fprintf(out_file, "\", shape=box];\n");
+        -:  269:    }
+        -:  270:    else {
+    #####:  271:       fprintf(out_file, "\"];\n");
+        -:  272:    }
+        -:  273:}
+        -:  274:
+        -:  275:static void generate_dot_for_edge(vertex* from, vertex* to, FILE* out_file, direction dir)
+function generate_dot_for_edge called 0 returned 0% blocks executed 0%
+    #####:  276:{
+    #####:  277:    if( RIGHT == generic(from->first->op) ) {
+    #####:  278:       if( DIR_LEFT == dir ) {
+    #####:  279:          fprintf(out_file, "    v%d -> v%d [label=\"L\"];\n", from->second, to->second);
+        -:  280:       }
+        -:  281:       else {
+    #####:  282:          fprintf(out_file, "    v%d -> v%d [label=\"R\"];\n", from->second, to->second);
+        -:  283:       }
+        -:  284:    }
+        -:  285:    else {
+    #####:  286:       fprintf(out_file, "    v%d -> v%d;\n", from->second, to->second);
+        -:  287:    }
+        -:  288:}
+        -:  289:
+        -:  290:// use breadth first search when traversal all edges of dag, 
+        -:  291:// because of fewest influence on the dag tree data structure and extra space consume
+function bfs_traverse_on_dag called 0 returned 0% blocks executed 0%
+    #####:  292:static void bfs_traverse_on_dag(Tree p, FILE* out_file) {
+    #####:  293:   vertex* is_fall_in_popoff_list = NULL;
+    #####:  294:   vertex* is_fall_in_queue = NULL;
+    #####:  295:   BFSQueue* item;
+        -:  296:
+    #####:  297:   int node_id = 1;
+        -:  298:
+    #####:  299:   item = malloc(sizeof(BFSQueue));
+    #####:  300:   item->v = malloc(sizeof(vertex));
+    #####:  301:   item->v->first = p;
+    #####:  302:   item->v->second = node_id++;
+        -:  303:
+    #####:  304:   act_push_back( &bfs_queue, &bfs_queue_tail, item );
+        -:  305:
+    #####:  306:   start_to_generate_dot(out_file);   
+    #####:  307:   generate_dot_for_vertex(item->v, out_file);
+        -:  308:   
+    #####:  309:   while( NULL != bfs_queue ) {
+    #####:  310:      vertex* parent = bfs_queue->v;
+    #####:  311:      vertex *child_left, *child_right;
+    #####:  312:      child_left = child_right = NULL;
+        -:  313:
+        -:  314:      // ! add to popoff list for the poped off item
+    #####:  315:      item = malloc(sizeof(BFSQueue));
+    #####:  316:      item -> v = bfs_queue->v;
+    #####:  317:      act_push_back( &popoff_node_list, &popoff_node_list_tail, item );
+        -:  318:      
+    #####:  319:      act_pop_off( &bfs_queue ); // pop off an item
+        -:  320:      
+        -:  321:      // !!! notice: it's special to RIGHT operaion, since its 1st child
+        -:  322:      //     maybe empty, however, the 2nd one is not.
+        -:  323:      //     e.g.   a, ++b;    // 1st child is "a", however without side-effort
+    #####:  324:      if( parent->first->kids[1] != NULL || parent->first->kids[0] != NULL ) {
+        -:  325:         /* assert( parent->first->kids[0] ); */
+        -:  326:        
+    #####:  327:         if( parent->first->kids[0] ) {  // !!! RIGHT's 1st child maybe empty, the 2nd not
+    #####:  328:            is_fall_in_popoff_list = is_fell_on_list(parent->first->kids[0], popoff_node_list);
+    #####:  329:            is_fall_in_queue = is_fell_on_list(parent->first->kids[0], bfs_queue);
+        -:  330:
+    #####:  331:            if( !is_fall_in_popoff_list && !is_fall_in_queue ) {
+        -:  332:               // add to queue, only the vertex has not been visited before
+    #####:  333:               item = malloc(sizeof(BFSQueue));
+    #####:  334:               item->v = child_left = malloc(sizeof(vertex));
+    #####:  335:               child_left->first = parent->first->kids[0];
+    #####:  336:               child_left->second = node_id++;
+        -:  337:
+    #####:  338:               act_push_back( &bfs_queue, &bfs_queue_tail, item );
+        -:  339:
+    #####:  340:               generate_dot_for_vertex(child_left, out_file);
+        -:  341:            }
+    #####:  342:            child_left = is_fall_in_popoff_list ? is_fall_in_popoff_list : 
+        -:  343:                       is_fall_in_queue ? is_fall_in_queue : child_left;
+        -:  344:         }
+        -:  345:
+    #####:  346:         if( parent->first->kids[1] ) {
+    #####:  347:            is_fall_in_popoff_list = is_fell_on_list(parent->first->kids[1], popoff_node_list);
+    #####:  348:            is_fall_in_queue = is_fell_on_list(parent->first->kids[1], bfs_queue);
+        -:  349:
+    #####:  350:            if( !is_fall_in_popoff_list && !is_fall_in_queue ) {
+        -:  351:               // add to queue, only the vertex has not been visited before
+    #####:  352:               item = malloc(sizeof(BFSQueue));
+    #####:  353:               item->v = child_right = malloc(sizeof(vertex));
+    #####:  354:               child_right->first = parent->first->kids[1];
+    #####:  355:               child_right->second = node_id++;
+        -:  356:               
+    #####:  357:               act_push_back( &bfs_queue, &bfs_queue_tail, item);
+        -:  358:
+    #####:  359:               generate_dot_for_vertex(child_right, out_file);
+        -:  360:            }
+    #####:  361:            child_right = is_fall_in_popoff_list ? is_fall_in_popoff_list : 
+        -:  362:                        is_fall_in_queue ? is_fall_in_queue : child_right;
+        -:  363:         }
+        -:  364:      }
+        -:  365:
+        -:  366:      // print edges a paraental node streches from
+    #####:  367:      if( parent->first->kids[0] ) {
+    #####:  368:         generate_dot_for_edge(parent, child_left, out_file, DIR_LEFT);
+        -:  369:      }
+    #####:  370:      if( parent->first->kids[1] ) {
+    #####:  371:         generate_dot_for_edge(parent, child_right, out_file, DIR_RIGHT);
+        -:  372:      }
+        -:  373:
+    #####:  374:      if( parent->first->kids[0] || parent->first->kids[1] ) {
+    #####:  375:         fprintf(out_file, "\n");
+        -:  376:      }
+        -:  377:   }
+        -:  378:
+    #####:  379:   end_to_generate_dot(out_file);
+        -:  380:}
+        -:  381:
+        -:  382:
+        -:  383:/*****************************************************************************/
+        -:  384:/*  module for dumping symbol information at various scopes                  */
+        -:  385:/*****************************************************************************/
+        -:  386:static FILE* sym_print_file = 0;
+        -:  387:static int sym_print_in_detail = 0;
+        -:  388:static int function_switch = 1;  // 0: open  1: close
+        -:  389:
+function get_sclass_str called 23 returned 100% blocks executed 58%
+       23:  390:static const char* get_sclass_str(int sclass) {
+       23:  391:   const char *p = NULL;
+        -:  392:
+       23:  393:   switch(sclass) {
+        -:  394:   case STATIC: 
+        5:  395:       p = "static";
+        5:  396:       break;
+        -:  397:   case EXTERN:
+    #####:  398:       p = "extern";
+    #####:  399:       break;
+        -:  400:   case REGISTER:
+    #####:  401:       p = "register";
+    #####:  402:       break;
+        -:  403:   case TYPEDEF:
+    #####:  404:       p = "typedef";
+       23:  405:       break;
+        -:  406:   case AUTO:
+       23:  407:       break;
+        -:  408:       assert(0);
+        -:  409:   }
+        -:  410:
+       23:  411:   return p;
+        -:  412:}
+        -:  413:
+function print_decl called 25 returned 100% blocks executed 81%
+       25:  414:void print_decl(Symbol p, Type ty, FILE* out_file) {
+       25:  415:	assert(ty);
+       25:  416:    switch (p->sclass) {
+        -:  417:	case AUTO: case TYPEDEF:
+        5:  418:		fprint(out_file, "%s", typestring(ty, p->name));
+        5:  419:		break;
+        -:  420:	case STATIC: case EXTERN:
+        5:  421:		fprint(out_file, "%k %s", p->sclass, typestring(ty, p->name));
+        -:  422:		break;
+        -:  423:	default: //assert(0);
+       25:  424:        break;
+        -:  425:	}
+        -:  426:}
+        -:  427:
+        -:  428:
+        -:  429:/*
+        -:  430:static void print_array_type(Type ty, FILE* f) {
+        -:  431:   if( !isarray(ty) ) {
+        -:  432:       if( ty->size > 0)
+        -:  433:          fprint(f, "%t", ty );
+        -:  434:       else 
+        -:  435:          fprintf(f, "incomplete type" );
+        -:  436:
+        -:  437:       return;   
+        -:  438:   }
+        -:  439:
+        -:  440:   if (ty->size > 0 && ty->type && ty->type->size > 0) {
+        -:  441:        fprintf(f, "array(");
+        -:  442:        print_array_type(ty->type, f);
+        -:  443:        fprintf(f, ", %d, %d)", ty->size, ty->align)
+        -:  444:        
+        -:  445:        // while (ty->type && isarray(ty->type) && ty->type->type->size > 0) {
+        -:  446:        // }
+        -:  447:        fprintf(f, ", %d, %d)", ty1->size, ty1->align);
+        -:  448:   }
+        -:  449:   else {
+        -:  450:        fprintf(f, "incomplete array");
+        -:  451:   }
+        -:  452:
+        -:  453:
+        -:  454:
+        -:  455:   if (ty->size > 0 && ty->type && ty->type->size > 0) { 
+        -:  456:        ty1 = ty;
+        -:  457:        while (ty->type && isarray(ty->type) && ty->type->type->size > 0) {
+        -:  458:           print_array_type(ty->type, f);
+        -:  459:           ty = ty->type;
+        -:  460:        }
+        -:  461:
+        -:  462:        fprintf("array(%s, %d, %d", ty1->size, ty1->align);
+        -:  463:        fprint(f, "array %d", ty->size/ty->type->size);
+        -:  464:
+        -:  465:   if (ty->size > 0 && ty->type && ty->type->size > 0) {
+        -:  466:        fprint(f, "array %d", ty->size/ty->type->size);
+        -:  467:        while (ty->type && isarray(ty->type) && ty->type->type->size > 0) {
+        -:  468:   		    ty = ty->type;
+        -:  469:   		    fprint(f, ",%d", ty->size/ty->type->size);
+        -:  470:   	    }
+        -:  471:   } else
+        -:  472:        fprint(f, "incomplete array");
+        -:  473:   if (ty->type)
+        -:  474:        fprint(f, " of %t", ty->type);
+        -:  475:}
+        -:  476:*/
+        -:  477:
+function print_symbol called 23 returned 100% blocks executed 89%
+       23:  478:static void print_symbol(Symbol sym, void* cl) {
+        -:  479:   extern int sym_print_in_detail;
+       23:  480:   const char* sclass_str;
+       23:  481:   int old_style_flag = -1;
+        -:  482:
+       23:  483:   assert(sym_print_file);
+       23:  484:   sclass_str = get_sclass_str(sym->sclass);
+        -:  485:   // assert(sym->type);
+       23:  486:   if( sym->type && sym->type->op == FUNCTION ) {
+        1:  487:       old_style_flag = sym->type->u.f.oldstyle;
+        -:  488:   }
+       23:  489:   fprintf(sym_print_file, "   %s: %s%s%s[defined=%d]%s%s%s%s[ref=%.1f]", 
+        -:  490:           sym->name,
+        -:  491:           sclass_str ? "[" : "",
+        -:  492:           sclass_str ? sclass_str : "",
+        -:  493:           sclass_str ? "]" : "",
+        -:  494:           sym->defined,
+        -:  495:           (sym->generated ? "[gen]" : ""),
+        -:  496:           (sym->temporary ? "[tmp]" : ""),
+        -:  497:           (sym->addressed ? "[addressed]" : ""),
+        -:  498:           (old_style_flag >= 0 ? (old_style_flag == 1 ? "[oldstyle]" : "[newstyle]")
+        -:  499:               : ""),
+        -:  500:           sym->ref
+        -:  501:          );
+        -:  502:
+       23:  503:   fprintf(sym_print_file, " | ");
+       23:  504:   if( sym->type )  {
+       22:  505:      print_decl(sym, sym->type, sym_print_file);
+       22:  506:      if( sym_print_in_detail ) {
+        -:  507:         // print type info in sym->type{->type} order
+       22:  508:         fprint(sym_print_file, " | %t", sym->type);
+        -:  509:      }
+        -:  510:   }  
+       23:  511:   fprintf(sym_print_file, "\n");
+        -:  512:}
+        -:  513:
+function init_symbol_dump_file called 1 returned 100% blocks executed 94%
+        1:  514:void init_symbol_dump_file(void) {
+        1:  515:   char  sym_print_file_name[260];
+        1:  516:   char* str = NULL;
+        -:  517:
+        1:  518:   str = getenv("LCC_SYM_DUMP_ENABLE");
+        1:  519:   if( str && strcmp(str, "true") == 0 ) 
+        -:  520:      ;
+        -:  521:   else 
+        1:  522:     return;
+        -:  523:   
+        1:  524:   str = getenv("LCC_SYM_DUMP_DETAIL");
+        1:  525:   if( str && strcmp(str, "true") == 0 ) 
+        1:  526:      sym_print_in_detail = 1;
+        -:  527:
+        1:  528:   memset(sym_print_file_name, 0, 260);
+        1:  529:   assert(file);
+        1:  530:   strcpy(sym_print_file_name, file);
+        1:  531:   for( str = sym_print_file_name; *str != '.'; ++str)
+        -:  532:      ;
+        -:  533:
+        1:  534:   strcpy(++str, "sym");
+        1:  535:   sym_print_file = fopen(sym_print_file_name, "w" );
+        -:  536:}
+        -:  537:
+function print_function_symbols called 1 returned 100% blocks executed 69%
+        1:  538:void print_function_symbols(Symbol* callee, Symbol* caller) {
+        1:  539:   const char* str = NULL;
+        1:  540:   int i = 0;
+        1:  541:   if( !sym_print_file )
+    #####:  542:      return;
+        -:  543:   
+        1:  544:   fprintf(sym_print_file, "\n   [function defn] ");
+        -:  545:   //str = get_sclass_str(cfunc->sclass);
+        -:  546:   //fprintf(sym_print_file, "%s ", str ? str : "" );
+        -:  547:   
+        1:  548:   print_decl(cfunc, cfunc->type, sym_print_file);
+        1:  549:   fprintf(sym_print_file, " %s\n", (cfunc->type->u.f.oldstyle ? "oldstyle" : ""));
+        -:  550:   
+        1:  551:   fprintf(sym_print_file, "   [function callee] ");
+        1:  552:   if( callee ) {
+        1:  553:      fprintf(sym_print_file, "{");
+        3:  554:      for( ; callee[i]; ++i ) {
+        1:  555:         if( callee[i]->sclass == REGISTER ) {
+    #####:  556:            fprintf(sym_print_file, "register");
+        -:  557:         }
+        1:  558:         print_decl(callee[i], callee[i]->type, sym_print_file);
+        -:  559:
+        1:  560:         if( callee[i+1] != NULL ) {
+    #####:  561:            fprintf(sym_print_file, ", ");
+        -:  562:         }
+        -:  563:      }
+        1:  564:      fprintf(sym_print_file, "}\n");
+        -:  565:   }
+        -:  566:   else {
+    #####:  567:      fprintf(sym_print_file, "NULL\n");
+        -:  568:   }
+        -:  569:   
+        1:  570:   fprintf(sym_print_file, "   [function caller] ");
+        1:  571:   if( caller ) {
+        1:  572:      fprintf(sym_print_file, "{");
+        2:  573:      for( i = 0; caller[i]; ++i ) {
+        1:  574:         if( caller[i]->sclass == REGISTER ) {
+    #####:  575:            fprintf(sym_print_file, "register");
+        -:  576:         }
+        1:  577:         print_decl(caller[i], caller[i]->type, sym_print_file);
+        1:  578:         if( caller[i+1] != NULL ) {
+    #####:  579:            fprintf(sym_print_file, ", ");
+        -:  580:         }
+        -:  581:      }
+        1:  582:      fprintf(sym_print_file, "}\n");
+        -:  583:   }
+        -:  584:   else {
+    #####:  585:      fprintf(sym_print_file, "NULL\n");
+        -:  586:   }
+        -:  587:   
+        1:  588:   fprintf(sym_print_file, "-------------------end a function definition----------------\n\n");
+        1:  589:   function_switch = 1;
+        -:  590:}
+function print_local_symbols called 1 returned 100% blocks executed 75%
+        1:  591:void print_local_symbols(void) {
+        1:  592:   if( !sym_print_file )
+    #####:  593:      return;
+        1:  594:   assert( level >= LOCAL );
+        -:  595:
+        1:  596:   if( function_switch ) {  // when print on a closed function, function starts
+        1:  597:      function_switch = 0;
+        1:  598:      fprintf(sym_print_file, "-----------------start a function definition----------------\n");
+        -:  599:   }
+        -:  600:
+        1:  601:   if ( identifiers ) 
+        -:  602:   {
+        1:  603:      if( level == LOCAL ) {
+        1:  604:         fprintf(sym_print_file, "   ++++++ LOCAL identifier symbols ++++++\n");
+        -:  605:      }
+        -:  606:      else {
+    #####:  607:         fprintf(sym_print_file, "   ++++++ LOCAL+%d identifier symbols ++++++\n", level-LOCAL);
+        -:  608:      }
+        1:  609:      foreach(identifiers, level, print_symbol, NULL);
+        -:  610:   }
+        -:  611:   
+        -:  612:   {
+        1:  613:      if( level == LOCAL ) {
+        1:  614:         fprintf(sym_print_file, "   ++++++ LOCAL type symbols ++++++\n");
+        -:  615:      }
+        -:  616:      else {
+    #####:  617:         fprintf(sym_print_file, "   ++++++ LOCAL+%d type symbols ++++++\n", level-LOCAL);
+        -:  618:      }
+        1:  619:      foreach(types, level, print_symbol, NULL);
+        -:  620:   }
+        1:  621:   fprintf(sym_print_file, "\n");
+        -:  622:}
+        -:  623:
+        -:  624:void print_global_symbols(void)
+function print_global_symbols called 1 returned 100% blocks executed 84%
+        1:  625:{
+        1:  626:   if( !sym_print_file )
+    #####:  627:      return;
+        -:  628:  
+        1:  629:   fprintf(sym_print_file, "\n\n\n");
+        1:  630:   fprintf(sym_print_file, "--------------------------- external symbols -----------------------------------\n");
+        1:  631:   foreach(externals, GLOBAL, print_symbol, NULL);
+        -:  632:   
+        1:  633:   fprintf(sym_print_file, "\n------------------------- global symbols --------------------------------\n");
+        1:  634:   foreach(globals, GLOBAL, print_symbol, NULL);    
+        -:  635:
+        1:  636:   fprintf(sym_print_file, "\n--------------------------- constant symbols -----------------------------------\n");
+        1:  637:   foreach(constants, CONSTANTS, print_symbol, NULL);   
+        1:  638:   fprintf(sym_print_file, "\n--------------------------- types symbols --------------------------------------\n");
+        1:  639:   foreach(types, GLOBAL, print_symbol, NULL);   
+        -:  640:   
+        1:  641:   fprintf(sym_print_file, "\n--------------------------- labels symbols -------------------------------------\n");
+        1:  642:   if( labels ) {
+    #####:  643:      foreach(labels, GLOBAL, print_symbol, NULL);   
+        -:  644:   }
+        -:  645:   
+        1:  646:   fprintf(sym_print_file, "-------------------------------------------------------------------------------\n");   
+        1:  647:   fclose(sym_print_file);
+        -:  648:}
+        -:  649:

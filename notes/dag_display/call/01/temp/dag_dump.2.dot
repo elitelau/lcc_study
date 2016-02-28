@@ -1,0 +1,57 @@
+////////////////////////////////////////////////////////////////////////////////
+// Generate the dot file for drawing semantic structure of statements
+
+// File name: test.c
+// Line number: 7
+////////////////////////////////////////////////////////////////////////////////
+
+digraph sematic_dag  {
+
+v0 [label="ASGNI int"];
+v1 [label="ADDRLP pointer to int"];
+v2 [label="CNSTI int"];
+v0 -> v1
+v0 -> v2
+}
+////////////////////////////////////////////////////////////////////////////////
+// Generate the dot file for drawing semantic structure of statements
+
+// File name: test.c
+// Line number: 8
+////////////////////////////////////////////////////////////////////////////////
+
+digraph sematic_dag  {
+
+v3 [label="ASGNI int"];
+v4 [label="ADDRLP pointer to int"];
+v5 [label="CNSTI int"];
+v3 -> v4
+v3 -> v5
+}
+////////////////////////////////////////////////////////////////////////////////
+// Generate the dot file for drawing semantic structure of statements
+
+// File name: test.c
+// Line number: 9
+////////////////////////////////////////////////////////////////////////////////
+
+digraph sematic_dag  {
+
+v6 [label="CALLI int"];
+v7 [label="RIGHT pointer to int function(int,int)"];
+v6 -> v7
+v8 [label="ARGI int"];
+v9 [label="ADDRGP pointer to int function(int,int)"];
+v7 -> v8
+v7 -> v9
+v10 [label="INDIRI int"];
+v11 [label="ARGI int"];
+v8 -> v10
+v8 -> v11
+v12 [label="ADDRLP pointer to int"];
+v10 -> v12
+v13 [label="INDIRI int"];
+v11 -> v13
+v14 [label="ADDRLP pointer to int"];
+v13 -> v14
+}

@@ -1,0 +1,1249 @@
+        -:    0:Source:src/decl.c
+        -:    0:Graph:lcc/decl.gcno
+        -:    0:Data:lcc/decl.gcda
+        -:    0:Runs:1
+        -:    0:Programs:1
+        -:    1:#include "c.h"
+        -:    2:
+        -:    3:static char rcsid[] = "$Id: decl.nw,v 2.24 1998/08/28 00:06:50 drh Exp $";
+        -:    4:
+        -:    5:#define add(x,n) (x > inttype->u.sym->u.limits.max.i-(n) ? (overflow=1,x) : x+(n))
+        -:    6:#define chkoverflow(x,n) ((void)add(x,n))
+        -:    7:#define bits2bytes(n) (((n) + 7)/8)
+        -:    8:static int regcount;
+        -:    9:
+        -:   10:static List autos, registers;
+        -:   11:Symbol cfunc;		/* current function */
+        -:   12:Symbol retv;		/* return value location for structs */
+        -:   13:
+        -:   14:static void checkref(Symbol, void *);
+        -:   15:static Symbol dclglobal(int, char *, Type, Coordinate *);
+        -:   16:static Symbol dcllocal(int, char *, Type, Coordinate *);
+        -:   17:static Symbol dclparam(int, char *, Type, Coordinate *);
+        -:   18:static Type dclr(Type, char **, Symbol **, int);
+        -:   19:static Type dclr1(char **, Symbol **, int);
+        -:   20:static void decl(Symbol (*)(int, char *, Type, Coordinate *));
+        -:   21:extern void doconst(Symbol, void *);
+        -:   22:static void doglobal(Symbol, void *);
+        -:   23:static void doextern(Symbol, void *);
+        -:   24:static void exitparams(Symbol []);
+        -:   25:static void fields(Type);
+        -:   26:static void funcdefn(int, char *, Type, Symbol [], Coordinate);
+        -:   27:static void initglobal(Symbol, int);
+        -:   28:static void oldparam(Symbol, void *);
+        -:   29:static Symbol *parameters(Type);
+        -:   30:static Type specifier(int *);
+        -:   31:static Type structdcl(int);
+        -:   32:static Type tnode(int, Type);
+function program called 1 returned 100% blocks executed 50%
+        1:   33:void program(void) {
+        1:   34:	int n;
+        -:   35:	
+        1:   36:	level = GLOBAL;
+        2:   37:	for (n = 0; t != EOI; n++)
+        1:   38:		if (kind[t] == CHAR || kind[t] == STATIC
+        -:   39:		|| t == ID || t == '*' || t == '(') {
+        1:   40:			decl(dclglobal);
+        1:   41:			deallocate(STMT);
+        1:   42:			if (!(glevel >= 3 || xref))
+        1:   43:			deallocate(FUNC);
+    #####:   44:		} else if (t == ';') {
+    #####:   45:			warning("empty declaration\n");
+    #####:   46:			t = gettok();
+        -:   47:		} else {
+    #####:   48:			error("unrecognized declaration\n");
+    #####:   49:			t = gettok();
+        -:   50:		}
+        1:   51:	if (n == 0)
+    #####:   52:		warning("empty input file\n");
+        -:   53:}
+function specifier called 1 returned 100% blocks executed 30%
+        1:   54:static Type specifier(int *sclass) {
+        1:   55:	int cls, cons, sign, size, type, vol;
+        1:   56:	Type ty = NULL;
+        -:   57:
+        1:   58:	cls = vol = cons = sign = size = type = 0;
+        1:   59:	if (sclass == NULL)
+    #####:   60:		cls = AUTO;
+        7:   61:	for (;;) {
+        4:   62:		int *p, tt = t;
+        4:   63:		switch (t) {
+        -:   64:		case AUTO:
+    #####:   65:		case REGISTER: if (level <= GLOBAL && cls == 0)
+    #####:   66:		               	error("invalid use of `%k'\n", t);
+    #####:   67:		               p = &cls;  t = gettok();      break;
+        -:   68:		case STATIC: case EXTERN:
+        1:   69:		case TYPEDEF:  p = &cls;  t = gettok();      break;
+    #####:   70:		case CONST:    p = &cons; t = gettok();      break;
+    #####:   71:		case VOLATILE: p = &vol;  t = gettok();      break;
+        -:   72:		case SIGNED:
+        1:   73:		case UNSIGNED: p = &sign; t = gettok();      break;
+    #####:   74:		case LONG:     if (size == LONG) {
+    #####:   75:		                       size = 0;
+    #####:   76:		                       tt = LONG+LONG;
+        -:   77:		               }
+    #####:   78:		               p = &size; t = gettok();      break;
+    #####:   79:		case SHORT:    p = &size; t = gettok();      break;
+        -:   80:		case VOID: case CHAR: case INT: case FLOAT:
+        1:   81:		case DOUBLE:   p = &type; ty = tsym->type;
+        1:   82:		                          t = gettok();      break;
+    #####:   83:		case ENUM:     p = &type; ty = enumdcl();    break;
+        -:   84:		case STRUCT:
+    #####:   85:		case UNION:    p = &type; ty = structdcl(t); break;
+        -:   86:		case ID:
+        1:   87:			if (istypename(t, tsym) && type == 0
+        -:   88:			&& sign == 0 && size == 0) {
+    #####:   89:				use(tsym, src);
+    #####:   90:				ty = tsym->type;
+    #####:   91:				if (isqual(ty)
+        -:   92:				&& ty->size != ty->type->size) {
+    #####:   93:					ty = unqual(ty);
+    #####:   94:					if (isconst(tsym->type))
+    #####:   95:						ty = qual(CONST, ty);
+    #####:   96:					if (isvolatile(tsym->type))
+    #####:   97:						ty = qual(VOLATILE, ty);
+    #####:   98:					tsym->type = ty;
+        -:   99:				}
+    #####:  100:				p = &type;
+    #####:  101:				t = gettok();
+        -:  102:			} else
+        1:  103:				p = NULL;
+        1:  104:			break;
+    #####:  105:		default: p = NULL;
+        -:  106:		}
+        4:  107:		if (p == NULL)
+        1:  108:			break;
+        3:  109:		if (*p)
+    #####:  110:			error("invalid use of `%k'\n", tt);
+        3:  111:		*p = tt;
+        -:  112:	}
+        1:  113:	if (sclass)
+        1:  114:		*sclass = cls;
+        1:  115:	if (type == 0) {
+    #####:  116:		type = INT;
+    #####:  117:		ty = inttype;
+        -:  118:	}
+        1:  119:	if (size == SHORT     && type != INT
+        -:  120:	||  size == LONG+LONG && type != INT
+        -:  121:	||  size == LONG      && type != INT && type != DOUBLE
+        -:  122:	||  sign && type != INT && type != CHAR)
+    #####:  123:		error("invalid type specification\n");
+        1:  124:	if (type == CHAR && sign)
+        1:  125:		ty = sign == UNSIGNED ? unsignedchar : signedchar;
+    #####:  126:	else if (size == SHORT)
+    #####:  127:		ty = sign == UNSIGNED ? unsignedshort : shorttype;
+    #####:  128:	else if (size == LONG && type == DOUBLE)
+    #####:  129:		ty = longdouble;
+    #####:  130:	else if (size == LONG+LONG) {
+    #####:  131:		ty = sign == UNSIGNED ? unsignedlonglong : longlong;
+    #####:  132:		if (Aflag >= 1)
+    #####:  133:			warning("`%t' is a non-ANSI type\n", ty);
+    #####:  134:	} else if (size == LONG)
+    #####:  135:		ty = sign == UNSIGNED ? unsignedlong : longtype;
+    #####:  136:	else if (sign == UNSIGNED && type == INT)
+    #####:  137:		ty = unsignedtype;
+        1:  138:	if (cons == CONST)
+    #####:  139:		ty = qual(CONST, ty);
+        1:  140:	if (vol  == VOLATILE)
+    #####:  141:		ty = qual(VOLATILE, ty);
+        1:  142:	return ty;
+        -:  143:}
+function decl called 1 returned 100% blocks executed 27%
+        1:  144:static void decl(Symbol (*dcl)(int, char *, Type, Coordinate *)) {
+        1:  145:	int sclass;
+        1:  146:	Type ty, ty1;
+        1:  147:	static char stop[] = { CHAR, STATIC, ID, 0 };
+        -:  148:
+        1:  149:	ty = specifier(&sclass);
+        1:  150:	if (t == ID || t == '*' || t == '(' || t == '[') {
+        1:  151:		char *id;
+        1:  152:		Coordinate pos;
+        1:  153:		id = NULL;
+        1:  154:		pos = src;
+        1:  155:		if (level == GLOBAL) {
+        1:  156:			Symbol *params = NULL;
+        1:  157:			ty1 = dclr(ty, &id, &params, 0);
+        1:  158:			if (params && id && isfunc(ty1)
+        -:  159:			    && (t == '{' || istypename(t, tsym)
+        -:  160:			    || (kind[t] == STATIC && t != TYPEDEF))) {
+    #####:  161:				if (sclass == TYPEDEF) {
+    #####:  162:					error("invalid use of `typedef'\n");
+    #####:  163:					sclass = EXTERN;
+        -:  164:				}
+    #####:  165:				if (ty1->u.f.oldstyle)
+    #####:  166:					exitscope();
+    #####:  167:				funcdefn(sclass, id, ty1, params, pos);
+    #####:  168:				return;
+        1:  169:			} else if (params)
+    #####:  170:				exitparams(params);
+        -:  171:		} else
+    #####:  172:			ty1 = dclr(ty, &id, NULL, 0);
+        3:  173:		for (;;) {
+        2:  174:			if (Aflag >= 1 && !hasproto(ty1))
+    #####:  175:				warning("missing prototype\n");
+        2:  176:			if (id == NULL)
+    #####:  177:				error("missing identifier\n");
+        2:  178:			else if (sclass == TYPEDEF)
+        -:  179:				{
+        2:  180:					Symbol p = lookup(id, identifiers);
+        2:  181:					if (p && p->scope == level)
+    #####:  182:						error("redeclaration of `%s'\n", id);
+        2:  183:					p = install(id, &identifiers, level,
+        -:  184:						level < LOCAL ? PERM : FUNC);
+        2:  185:					p->type = ty1;
+        2:  186:					p->sclass = TYPEDEF;
+        2:  187:					p->src = pos;
+        -:  188:				}
+        -:  189:			else
+    #####:  190:				(void)(*dcl)(sclass, id, ty1, &pos);
+        2:  191:			if (t != ',')
+        1:  192:				break;
+        1:  193:			t = gettok();
+        1:  194:			id = NULL;
+        1:  195:			pos = src;
+        1:  196:			ty1 = dclr(ty, &id, NULL, 0);
+        -:  197:		}
+    #####:  198:	} else if (ty == NULL
+        -:  199:	|| !(isenum(ty) ||
+        -:  200:	     isstruct(ty) && (*unqual(ty)->u.sym->name < '1' || *unqual(ty)->u.sym->name > '9')))
+    #####:  201:		error("empty declaration\n");
+        1:  202:	test(';', stop);
+        -:  203:}
+function dclglobal called 0 returned 0% blocks executed 0%
+    #####:  204:static Symbol dclglobal(int sclass, char *id, Type ty, Coordinate *pos) {
+    #####:  205:	Symbol p;
+        -:  206:
+    #####:  207:	if (sclass == 0)
+    #####:  208:		sclass = AUTO;
+    #####:  209:	else if (sclass != EXTERN && sclass != STATIC) {
+    #####:  210:		error("invalid storage class `%k' for `%t %s'\n",
+        -:  211:			sclass, ty, id);
+    #####:  212:		sclass = AUTO;
+        -:  213:	}
+    #####:  214:	p = lookup(id, identifiers);
+    #####:  215:	if (p && p->scope == GLOBAL) {
+    #####:  216:		if (p->sclass != TYPEDEF && eqtype(ty, p->type, 1))
+    #####:  217:			ty = compose(ty, p->type);
+        -:  218:		else
+    #####:  219:			error("redeclaration of `%s' previously declared at %w\n", p->name, &p->src);
+        -:  220:
+    #####:  221:		if (!isfunc(ty) && p->defined && t == '=')
+    #####:  222:			error("redefinition of `%s' previously defined at %w\n", p->name, &p->src);
+        -:  223:
+    #####:  224:		if (p->sclass == EXTERN && sclass == STATIC
+        -:  225:		||  p->sclass == STATIC && sclass == AUTO
+        -:  226:		||  p->sclass == AUTO   && sclass == STATIC)
+    #####:  227:			warning("inconsistent linkage for `%s' previously declared at %w\n", p->name, &p->src);
+        -:  228:
+        -:  229:	}
+    #####:  230:	if (p == NULL || p->scope != GLOBAL) {
+    #####:  231:		Symbol q = lookup(id, externals);
+    #####:  232:		if (q) {
+    #####:  233:			if (sclass == STATIC || !eqtype(ty, q->type, 1))
+    #####:  234:				warning("declaration of `%s' does not match previous declaration at %w\n", id, &q->src);
+        -:  235:
+    #####:  236:			p = relocate(id, externals, globals);
+    #####:  237:			p->sclass = sclass;
+        -:  238:		} else {
+    #####:  239:			p = install(id, &globals, GLOBAL, PERM);
+    #####:  240:			p->sclass = sclass;
+    #####:  241:			(*IR->defsymbol)(p);
+        -:  242:		}
+    #####:  243:		if (p->sclass != STATIC) {
+    #####:  244:			static int nglobals;
+    #####:  245:			nglobals++;
+    #####:  246:			if (Aflag >= 2 && nglobals == 512)
+    #####:  247:				warning("more than 511 external identifiers\n");
+        -:  248:		}
+    #####:  249:	} else if (p->sclass == EXTERN)
+    #####:  250:		p->sclass = sclass;
+    #####:  251:	p->type = ty;
+    #####:  252:	p->src = *pos;
+    #####:  253:	if (t == '=' && isfunc(p->type)) {
+    #####:  254:		error("illegal initialization for `%s'\n", p->name);
+    #####:  255:		t = gettok();
+    #####:  256:		initializer(p->type, 0);
+    #####:  257:	} else if (t == '=') {
+    #####:  258:		initglobal(p, 0);
+    #####:  259:		if (glevel > 0 && IR->stabsym) {
+    #####:  260:			(*IR->stabsym)(p); swtoseg(p->u.seg); }
+    #####:  261:	} else if (p->sclass == STATIC && !isfunc(p->type)
+        -:  262:	&& p->type->size == 0)
+    #####:  263:		error("undefined size for `%t %s'\n", p->type, p->name);
+    #####:  264:	return p;
+        -:  265:}
+function initglobal called 0 returned 0% blocks executed 0%
+    #####:  266:static void initglobal(Symbol p, int flag) {
+    #####:  267:	Type ty;
+        -:  268:
+    #####:  269:	if (t == '=' || flag) {
+    #####:  270:		if (p->sclass == STATIC) {
+    #####:  271:			for (ty = p->type; isarray(ty); ty = ty->type)
+        -:  272:				;
+    #####:  273:			defglobal(p, isconst(ty) ? LIT : DATA);
+        -:  274:		} else
+    #####:  275:			defglobal(p, DATA);
+    #####:  276:		if (t == '=')
+    #####:  277:			t = gettok();
+    #####:  278:		ty = initializer(p->type, 0);
+    #####:  279:		if (isarray(p->type) && p->type->size == 0)
+    #####:  280:			p->type = ty;
+    #####:  281:		if (p->sclass == EXTERN)
+    #####:  282:			p->sclass = AUTO;
+        -:  283:	}
+        -:  284:}
+function defglobal called 0 returned 0% blocks executed 0%
+    #####:  285:void defglobal(Symbol p, int seg) {
+    #####:  286:	p->u.seg = seg;
+    #####:  287:	swtoseg(p->u.seg);
+    #####:  288:	if (p->sclass != STATIC)
+    #####:  289:		(*IR->export)(p);
+    #####:  290:	(*IR->global)(p);
+    #####:  291:	p->defined = 1;
+        -:  292:}
+        -:  293:
+function dclr called 2 returned 100% blocks executed 30%
+        2:  294:static Type dclr(Type basety, char **id, Symbol **params, int abstract) {
+        2:  295:	Type ty = dclr1(id, params, abstract);
+        -:  296:
+        2:  297:	for ( ; ty; ty = ty->type)
+    #####:  298:		switch (ty->op) {
+        -:  299:		case POINTER:
+    #####:  300:			basety = ptr(basety);
+    #####:  301:			break;
+        -:  302:		case FUNCTION:
+    #####:  303:			basety = func(basety, ty->u.f.proto,
+        -:  304:				ty->u.f.oldstyle);
+    #####:  305:			break;
+        -:  306:		case ARRAY:
+    #####:  307:			basety = array(basety, ty->size, 0);
+    #####:  308:			break;
+        -:  309:		case CONST: case VOLATILE:
+    #####:  310:			basety = qual(ty->op, basety);
+    #####:  311:			break;
+    #####:  312:		default: assert(0);
+        -:  313:		}
+        2:  314:	if (Aflag >= 2 && basety->size > 32767)
+    #####:  315:		warning("more than 32767 bytes in `%t'\n", basety);
+        2:  316:	return basety;
+        -:  317:}
+function tnode called 0 returned 0% blocks executed 0%
+    #####:  318:static Type tnode(int op, Type type) {
+    #####:  319:	Type ty;
+        -:  320:
+    #####:  321:	NEW0(ty, STMT);
+    #####:  322:	ty->op = op;
+    #####:  323:	ty->type = type;
+    #####:  324:	return ty;
+        -:  325:}
+function dclr1 called 2 returned 100% blocks executed 14%
+        2:  326:static Type dclr1(char **id, Symbol **params, int abstract) {
+        2:  327:	Type ty = NULL;
+        -:  328:
+        2:  329:	switch (t) {
+        2:  330:	case ID:                if (id)
+        2:  331:					*id = token;
+        -:  332:				else
+    #####:  333:					error("extraneous identifier `%s'\n", token);
+        2:  334:				t = gettok(); break;
+    #####:  335:	case '*': t = gettok(); if (t == CONST || t == VOLATILE) {
+    #####:  336:					Type ty1;
+    #####:  337:					ty1 = ty = tnode(t, NULL);
+    #####:  338:					while ((t = gettok()) == CONST || t == VOLATILE)
+    #####:  339:						ty1 = tnode(t, ty1);
+    #####:  340:					ty->type = dclr1(id, params, abstract);
+    #####:  341:					ty = ty1;
+        -:  342:				} else
+    #####:  343:					ty = dclr1(id, params, abstract);
+    #####:  344:				ty = tnode(POINTER, ty); break;
+    #####:  345:	case '(': t = gettok(); if (abstract
+        -:  346:				&& (t == REGISTER || istypename(t, tsym) || t == ')')) {
+    #####:  347:					Symbol *args;
+    #####:  348:					ty = tnode(FUNCTION, ty);
+    #####:  349:					enterscope();
+    #####:  350:					if (level > PARAM)
+    #####:  351:						enterscope();
+    #####:  352:					args = parameters(ty);
+    #####:  353:					exitparams(args);
+        -:  354:				} else {
+    #####:  355:					ty = dclr1(id, params, abstract);
+    #####:  356:					expect(')');
+    #####:  357:					if (abstract && ty == NULL
+        -:  358:					&& (id == NULL || *id == NULL))
+    #####:  359:						return tnode(FUNCTION, NULL);
+    #####:  360:				} break;
+    #####:  361:	case '[': break;
+    #####:  362:	default:  return ty;
+        -:  363:	}
+        2:  364:	while (t == '(' || t == '[')
+    #####:  365:		switch (t) {
+    #####:  366:		case '(': t = gettok(); { Symbol *args;
+    #####:  367:					  ty = tnode(FUNCTION, ty);
+    #####:  368:					  enterscope();
+    #####:  369:					  if (level > PARAM)
+    #####:  370:					  	enterscope();
+    #####:  371:					  args = parameters(ty);
+    #####:  372:					  if (params && *params == NULL)
+    #####:  373:					  	*params = args;
+        -:  374:					  else
+    #####:  375:					  	exitparams(args);
+        -:  376: }
+    #####:  377:		          break;
+    #####:  378:		case '[': t = gettok(); { int n = 0;
+    #####:  379:					  if (kind[t] == ID) {
+    #####:  380:					  	n = intexpr(']', 1);
+    #####:  381:					  	if (n <= 0) {
+    #####:  382:					  		error("`%d' is an illegal array size\n", n);
+    #####:  383:					  		n = 1;
+        -:  384:					  	}
+        -:  385:					  } else
+    #####:  386:					  	expect(']');
+    #####:  387:					  ty = tnode(ARRAY, ty);
+    #####:  388:					  ty->size = n; } break;
+    #####:  389:		default: assert(0);
+        -:  390:		}
+        2:  391:	return ty;
+        -:  392:}
+function parameters called 0 returned 0% blocks executed 0%
+    #####:  393:static Symbol *parameters(Type fty) {
+    #####:  394:	List list = NULL;
+    #####:  395:	Symbol *params;
+        -:  396:
+    #####:  397:	if (kind[t] == STATIC || istypename(t, tsym)) {
+    #####:  398:		int n = 0;
+    #####:  399:		Type ty1 = NULL;
+    #####:  400:		for (;;) {
+    #####:  401:			Type ty;
+    #####:  402:			int sclass = 0;
+    #####:  403:			char *id = NULL;
+    #####:  404:			if (ty1 && t == ELLIPSIS) {
+    #####:  405:				static struct symbol sentinel;
+    #####:  406:				if (sentinel.type == NULL) {
+    #####:  407:					sentinel.type = voidtype;
+    #####:  408:					sentinel.defined = 1;
+        -:  409:				}
+    #####:  410:				if (ty1 == voidtype)
+    #####:  411:					error("illegal formal parameter types\n");
+    #####:  412:				list = append(&sentinel, list);
+    #####:  413:				t = gettok();
+    #####:  414:				break;
+        -:  415:			}
+    #####:  416:			if (!istypename(t, tsym) && t != REGISTER)
+    #####:  417:				error("missing parameter type\n");
+    #####:  418:			n++;
+    #####:  419:			ty = dclr(specifier(&sclass), &id, NULL, 1);
+    #####:  420:			if ( ty == voidtype && (ty1 || id)
+        -:  421:			||  ty1 == voidtype)
+    #####:  422:				error("illegal formal parameter types\n");
+    #####:  423:			if (id == NULL)
+    #####:  424:				id = stringd(n);
+    #####:  425:			if (ty != voidtype)
+    #####:  426:				list = append(dclparam(sclass, id, ty, &src), list);
+    #####:  427:			if (Aflag >= 1 && !hasproto(ty))
+    #####:  428:				warning("missing prototype\n");
+    #####:  429:			if (ty1 == NULL)
+    #####:  430:				ty1 = ty;
+    #####:  431:			if (t != ',')
+    #####:  432:				break;
+    #####:  433:			t = gettok();
+        -:  434:		}
+    #####:  435:		fty->u.f.proto = newarray(length(list) + 1,
+        -:  436:			sizeof (Type *), PERM);
+    #####:  437:		params = ltov(&list, FUNC);
+    #####:  438:		for (n = 0; params[n]; n++)
+    #####:  439:			fty->u.f.proto[n] = params[n]->type;
+    #####:  440:		fty->u.f.proto[n] = NULL;
+    #####:  441:		fty->u.f.oldstyle = 0;
+        -:  442:	} else {
+    #####:  443:		if (t == ID)
+    #####:  444:			for (;;) {
+    #####:  445:				Symbol p;
+    #####:  446:				if (t != ID) {
+    #####:  447:					error("expecting an identifier\n");
+    #####:  448:					break;
+        -:  449:				}
+    #####:  450:				p = dclparam(0, token, inttype, &src);
+    #####:  451:				p->defined = 0;
+    #####:  452:				list = append(p, list);
+    #####:  453:				t = gettok();
+    #####:  454:				if (t != ',')
+    #####:  455:					break;
+    #####:  456:				t = gettok();
+        -:  457:			}
+    #####:  458:		params = ltov(&list, FUNC);
+    #####:  459:		fty->u.f.proto = NULL;
+    #####:  460:		fty->u.f.oldstyle = 1;
+        -:  461:	}
+    #####:  462:	if (t != ')') {
+    #####:  463:		static char stop[] = { CHAR, STATIC, IF, ')', 0 };
+    #####:  464:		expect(')');
+    #####:  465:		skipto('{', stop);
+        -:  466:	}
+    #####:  467:	if (t == ')')
+    #####:  468:		t = gettok();
+    #####:  469:	return params;
+        -:  470:}
+function exitparams called 0 returned 0% blocks executed 0%
+    #####:  471:static void exitparams(Symbol params[]) {
+    #####:  472:	assert(params);
+    #####:  473:	if (params[0] && !params[0]->defined)
+    #####:  474:		error("extraneous old-style parameter list\n");
+    #####:  475:	if (level > PARAM)
+    #####:  476:		exitscope();
+    #####:  477:	exitscope();
+        -:  478:}
+        -:  479:
+function dclparam called 0 returned 0% blocks executed 0%
+    #####:  480:static Symbol dclparam(int sclass, char *id, Type ty, Coordinate *pos) {
+    #####:  481:	Symbol p;
+        -:  482:
+    #####:  483:	if (isfunc(ty))
+    #####:  484:		ty = ptr(ty);
+    #####:  485:	else if (isarray(ty))
+    #####:  486:		ty = atop(ty);
+    #####:  487:	if (sclass == 0)
+    #####:  488:		sclass = AUTO;
+    #####:  489:	else if (sclass != REGISTER) {
+    #####:  490:		error("invalid storage class `%k' for `%t%s\n",
+        -:  491:			sclass, ty, stringf(id ? " %s'" : "' parameter", id));
+    #####:  492:		sclass = AUTO;
+    #####:  493:	} else if (isvolatile(ty) || isstruct(ty)) {
+    #####:  494:		warning("register declaration ignored for `%t%s\n",
+        -:  495:			ty, stringf(id ? " %s'" : "' parameter", id));
+    #####:  496:		sclass = AUTO;
+        -:  497:	}
+        -:  498:
+    #####:  499:	p = lookup(id, identifiers);
+    #####:  500:	if (p && p->scope == level)
+    #####:  501:		error("duplicate declaration for `%s' previously declared at %w\n", id, &p->src);
+        -:  502:
+        -:  503:	else
+    #####:  504:		p = install(id, &identifiers, level, FUNC);
+    #####:  505:	p->sclass = sclass;
+    #####:  506:	p->src = *pos;
+    #####:  507:	p->type = ty;
+    #####:  508:	p->defined = 1;
+    #####:  509:	if (t == '=') {
+    #####:  510:		error("illegal initialization for parameter `%s'\n", id);
+    #####:  511:		t = gettok();
+    #####:  512:		(void)expr1(0);
+        -:  513:	}
+    #####:  514:	return p;
+        -:  515:}
+function structdcl called 0 returned 0% blocks executed 0%
+    #####:  516:static Type structdcl(int op) {
+    #####:  517:	char *tag;
+    #####:  518:	Type ty;
+    #####:  519:	Symbol p;
+    #####:  520:	Coordinate pos;
+        -:  521:
+    #####:  522:	t = gettok();
+    #####:  523:	pos = src;
+    #####:  524:	if (t == ID) {
+    #####:  525:		tag = token;
+    #####:  526:		t = gettok();
+        -:  527:	} else
+    #####:  528:		tag = "";
+    #####:  529:	if (t == '{') {
+    #####:  530:		static char stop[] = { IF, ',', 0 };
+    #####:  531:		ty = newstruct(op, tag);
+    #####:  532:		ty->u.sym->src = pos;
+    #####:  533:		ty->u.sym->defined = 1;
+    #####:  534:		t = gettok();
+    #####:  535:		if (istypename(t, tsym))
+    #####:  536:			fields(ty);
+        -:  537:		else
+    #####:  538:			error("invalid %k field declarations\n", op);
+    #####:  539:		test('}', stop);
+        -:  540:	}
+    #####:  541:	else if (*tag && (p = lookup(tag, types)) != NULL
+        -:  542:	&& p->type->op == op) {
+    #####:  543:		ty = p->type;
+    #####:  544:		if (t == ';' && p->scope < level)
+    #####:  545:			ty = newstruct(op, tag);
+        -:  546:	}
+        -:  547:	else {
+    #####:  548:		if (*tag == 0)
+    #####:  549:			error("missing %k tag\n", op);
+    #####:  550:		ty = newstruct(op, tag);
+        -:  551:	}
+    #####:  552:	if (*tag && xref)
+    #####:  553:		use(ty->u.sym, pos);
+    #####:  554:	return ty;
+        -:  555:}
+function fields called 0 returned 0% blocks executed 0%
+    #####:  556:static void fields(Type ty) {
+    #####:  557:	{ int n = 0;
+    #####:  558:	  while (istypename(t, tsym)) {
+    #####:  559:	  	static char stop[] = { IF, CHAR, '}', 0 };
+    #####:  560:	  	Type ty1 = specifier(NULL);
+    #####:  561:	  	for (;;) {
+    #####:  562:	  		Field p;
+    #####:  563:	  		char *id = NULL;
+    #####:  564:	  		Type fty = dclr(ty1, &id, NULL, 0);
+    #####:  565:			p = newfield(id, ty, fty);
+    #####:  566:			if (Aflag >= 1 && !hasproto(p->type))
+    #####:  567:				warning("missing prototype\n");
+    #####:  568:			if (t == ':') {
+    #####:  569:				if (unqual(p->type) != inttype
+        -:  570:				&&  unqual(p->type) != unsignedtype) {
+    #####:  571:					error("`%t' is an illegal bit-field type\n",
+        -:  572:						p->type);
+    #####:  573:					p->type = inttype;
+        -:  574:				}
+    #####:  575:				t = gettok();
+    #####:  576:				p->bitsize = intexpr(0, 0);
+    #####:  577:				if (p->bitsize > 8*inttype->size || p->bitsize < 0) {
+    #####:  578:					error("`%d' is an illegal bit-field size\n",
+        -:  579:						p->bitsize);
+    #####:  580:					p->bitsize = 8*inttype->size;
+    #####:  581:				} else if (p->bitsize == 0 && id) {
+    #####:  582:					warning("extraneous 0-width bit field `%t %s' ignored\n", p->type, id);
+        -:  583:
+    #####:  584:					p->name = stringd(genlabel(1));
+        -:  585:				}
+    #####:  586:				p->lsb = 1;
+        -:  587:			}
+        -:  588:			else {
+    #####:  589:				if (id == NULL)
+    #####:  590:					error("field name missing\n");
+    #####:  591:				else if (isfunc(p->type))
+    #####:  592:					error("`%t' is an illegal field type\n", p->type);
+    #####:  593:				else if (p->type->size == 0)
+    #####:  594:					error("undefined size for field `%t %s'\n",
+        -:  595:						p->type, id);
+        -:  596:			}
+    #####:  597:			if (isconst(p->type))
+    #####:  598:				ty->u.sym->u.s.cfields = 1;
+    #####:  599:			if (isvolatile(p->type))
+    #####:  600:				ty->u.sym->u.s.vfields = 1;
+    #####:  601:	  		n++;
+    #####:  602:	  		if (Aflag >= 2 && n == 128)
+    #####:  603:	  			warning("more than 127 fields in `%t'\n", ty);
+    #####:  604:	  		if (t != ',')
+    #####:  605:	  			break;
+    #####:  606:	  		t = gettok();
+        -:  607:	  	}
+    #####:  608:	  	test(';', stop);
+        -:  609:	  } }
+    #####:  610:	{ int bits = 0, off = 0, overflow = 0;
+    #####:  611:	  Field p, *q = &ty->u.sym->u.s.flist;
+    #####:  612:	  ty->align = IR->structmetric.align;
+    #####:  613:	  for (p = *q; p; p = p->link) {
+    #####:  614:	  	int a = p->type->align ? p->type->align : 1;
+    #####:  615:		if (p->lsb)
+    #####:  616:			a = unsignedtype->align;
+    #####:  617:		if (ty->op == UNION)
+    #####:  618:			off = bits = 0;
+    #####:  619:		else if (p->bitsize == 0 || bits == 0
+        -:  620:		|| bits - 1 + p->bitsize > 8*unsignedtype->size) {
+    #####:  621:			off = add(off, bits2bytes(bits-1));
+    #####:  622:			bits = 0;
+    #####:  623:			chkoverflow(off, a - 1);
+    #####:  624:			off = roundup(off, a);
+        -:  625:		}
+    #####:  626:		if (a > ty->align)
+    #####:  627:			ty->align = a;
+    #####:  628:		p->offset = off;
+        -:  629:
+    #####:  630:		if (p->lsb) {
+    #####:  631:			if (bits == 0)
+    #####:  632:				bits = 1;
+    #####:  633:			if (IR->little_endian)
+    #####:  634:				p->lsb = bits;
+        -:  635:			else
+    #####:  636:				p->lsb = 8*unsignedtype->size - bits + 1
+        -:  637:					- p->bitsize + 1;
+    #####:  638:			bits += p->bitsize;
+        -:  639:		} else
+    #####:  640:			off = add(off, p->type->size);
+    #####:  641:		if (off + bits2bytes(bits-1) > ty->size)
+    #####:  642:			ty->size = off + bits2bytes(bits-1);
+    #####:  643:	  	if (p->name == NULL
+        -:  644:	  	|| !('1' <= *p->name && *p->name <= '9')) {
+    #####:  645:	  		*q = p;
+    #####:  646:	  		q = &p->link;
+        -:  647:	  	}
+        -:  648:	  }
+    #####:  649:	  *q = NULL;
+    #####:  650:	  chkoverflow(ty->size, ty->align - 1);
+    #####:  651:	  ty->size = roundup(ty->size, ty->align);
+    #####:  652:	  if (overflow) {
+    #####:  653:	  	error("size of `%t' exceeds %d bytes\n", ty, inttype->u.sym->u.limits.max.i);
+    #####:  654:	  	ty->size = inttype->u.sym->u.limits.max.i&(~(ty->align - 1));
+        -:  655:	  } }
+        -:  656:}
+        -:  657:/*
+        -:  658:// added by liujian, for temporary study on structures generated by various statements
+        -:  659:void print_code_list(void) {
+        -:  660:   Code sentinel = codelist;
+        -:  661:   Code iter = &codehead;
+        -:  662:   FILE* code_list_dumping_file;
+        -:  663:   char  code_list_file_name[100];
+        -:  664:
+        -:  665:   sprintf(code_list_file_name, "%s.code", file);
+        -:  666:   code_list_dumping_file = fopen(code_list_file_name, "w");
+        -:  667:
+        -:  668:   if( !code_list_dumping_file ) {
+        -:  669:      return;
+        -:  670:   }
+        -:  671:
+        -:  672:   for( ; iter != codelist; iter = iter->next ) {
+        -:  673:      switch(iter->kind) {
+        -:  674:      case Start:
+        -:  675:         fprintf(code_list_dumping_file, "Start");
+        -:  676:         break;
+        -:  677:      case Blockbeg:
+        -:  678:         fprintf(code_list_dumping_file, "->BBegin");
+        -:  679:         break;
+        -:  680:      case Blockend:
+        -:  681:         fprintf(code_list_dumping_file, "->BEnd");
+        -:  682:         break;
+        -:  683:      case Local:
+        -:  684:         fprintf(code_list_dumping_file, "->Local");
+        -:  685:         break;
+        -:  686:      case Address:
+        -:  687:         fprintf(code_list_dumping_file, "->Address");
+        -:  688:         break;
+        -:  689:      case Defpoint:
+        -:  690:         fprintf(code_list_dumping_file, "->Defpoint");
+        -:  691:         break;
+        -:  692:      case Label:
+        -:  693:         fprintf(code_list_dumping_file, "->Label");
+        -:  694:         break;
+        -:  695:      case Gen:
+        -:  696:         fprintf(code_list_dumping_file, "->Gen");
+        -:  697:         break;
+        -:  698:      case Jump:
+        -:  699:         fprintf(code_list_dumping_file, "->Jump");
+        -:  700:         break;
+        -:  701:      case Switch:
+        -:  702:         fprintf(code_list_dumping_file, "->Switch");
+        -:  703:         break;
+        -:  704:      default:
+        -:  705:         assert(0);
+        -:  706:      }
+        -:  707:   }
+        -:  708:   fprintf(code_list_dumping_file, "\n\n");
+        -:  709:   fclose(code_list_dumping_file);
+        -:  710:}
+        -:  711:*/
+function funcdefn called 0 returned 0% blocks executed 0%
+    #####:  712:static void funcdefn(int sclass, char *id, Type ty, Symbol params[], Coordinate pt) {
+    #####:  713:	int i, n;
+    #####:  714:	Symbol *callee, *caller, p;
+    #####:  715:	Type rty = freturn(ty);
+        -:  716:
+    #####:  717:	if (isstruct(rty) && rty->size == 0)
+    #####:  718:		error("illegal use of incomplete type `%t'\n", rty);
+    #####:  719:	for (n = 0; params[n]; n++)
+        -:  720:		;
+    #####:  721:	if (n > 0 && params[n-1]->name == NULL)
+    #####:  722:		params[--n] = NULL;
+    #####:  723:	if (Aflag >= 2 && n > 31)
+    #####:  724:		warning("more than 31 parameters in function `%s'\n", id);
+    #####:  725:	if (ty->u.f.oldstyle) {
+    #####:  726:		if (Aflag >= 1)
+    #####:  727:			warning("old-style function definition for `%s'\n", id);
+    #####:  728:		caller = params;
+    #####:  729:		callee = newarray(n + 1, sizeof *callee, FUNC);
+    #####:  730:		memcpy(callee, caller, (n+1)*sizeof *callee);
+    #####:  731:		enterscope();
+    #####:  732:		assert(level == PARAM);
+    #####:  733:		while (kind[t] == STATIC || istypename(t, tsym))
+    #####:  734:			decl(dclparam);
+    #####:  735:		foreach(identifiers, PARAM, oldparam, callee);
+        -:  736:
+    #####:  737:		for (i = 0; (p = callee[i]) != NULL; i++) {
+    #####:  738:			if (!p->defined)
+    #####:  739:				callee[i] = dclparam(0, p->name, inttype, &p->src);
+    #####:  740:			*caller[i] = *p;
+    #####:  741:			caller[i]->sclass = AUTO;
+    #####:  742:			caller[i]->type = promote(p->type);
+        -:  743:		}
+    #####:  744:		p = lookup(id, identifiers);
+    #####:  745:		if (p && p->scope == GLOBAL && isfunc(p->type)
+        -:  746:		&& p->type->u.f.proto) {
+    #####:  747:			Type *proto = p->type->u.f.proto;
+    #####:  748:			for (i = 0; caller[i] && proto[i]; i++) {
+    #####:  749:				Type ty = unqual(proto[i]);
+    #####:  750:				if (eqtype(isenum(ty) ? ty->type : ty,
+        -:  751:					unqual(caller[i]->type), 1) == 0)
+    #####:  752:					break;
+    #####:  753:				else if (isenum(ty) && !isenum(unqual(caller[i]->type)))
+    #####:  754:					warning("compatibility of `%t' and `%t' is compiler dependent\n",
+        -:  755:						proto[i], caller[i]->type);
+        -:  756:			}
+    #####:  757:			if (proto[i] || caller[i])
+    #####:  758:				error("conflicting argument declarations for function `%s'\n", id);
+        -:  759:
+        -:  760:		}
+        -:  761:		else {
+    #####:  762:			Type *proto = newarray(n + 1, sizeof *proto, PERM);
+    #####:  763:			if (Aflag >= 1)
+    #####:  764:				warning("missing prototype for `%s'\n", id);
+    #####:  765:			for (i = 0; i < n; i++)
+    #####:  766:				proto[i] = caller[i]->type;
+    #####:  767:			proto[i] = NULL;
+    #####:  768:			ty = func(rty, proto, 1);
+        -:  769:		}
+        -:  770:	} else {
+    #####:  771:		callee = params;
+    #####:  772:		caller = newarray(n + 1, sizeof *caller, FUNC);
+    #####:  773:		for (i = 0; (p = callee[i]) != NULL && p->name; i++) {
+    #####:  774:			NEW(caller[i], FUNC);
+    #####:  775:			*caller[i] = *p;
+    #####:  776:			if (isint(p->type))
+    #####:  777:				caller[i]->type = promote(p->type);
+    #####:  778:			caller[i]->sclass = AUTO;
+    #####:  779:			if ('1' <= *p->name && *p->name <= '9')
+    #####:  780:				error("missing name for parameter %d to function `%s'\n", i + 1, id);
+        -:  781:
+        -:  782:		}
+    #####:  783:		caller[i] = NULL;
+        -:  784:	}
+    #####:  785:	for (i = 0; (p = callee[i]) != NULL; i++)
+    #####:  786:		if (p->type->size == 0) {
+    #####:  787:			error("undefined size for parameter `%t %s'\n",
+        -:  788:				p->type, p->name);
+    #####:  789:			caller[i]->type = p->type = inttype;
+        -:  790:		}
+    #####:  791:	if (Aflag >= 2 && sclass != STATIC && strcmp(id, "main") == 0) {
+    #####:  792:		if (ty->u.f.oldstyle)
+    #####:  793:			warning("`%t %s()' is a non-ANSI definition\n", rty, id);
+    #####:  794:		else if (!(rty == inttype
+        -:  795:			&& (n == 0 && callee[0] == NULL
+        -:  796:			||  n == 2 && callee[0]->type == inttype
+        -:  797:			&& isptr(callee[1]->type) && callee[1]->type->type == charptype
+        -:  798:			&& !variadic(ty))))
+    #####:  799:			warning("`%s' is a non-ANSI definition\n", typestring(ty, id));
+        -:  800:	}
+    #####:  801:	p = lookup(id, identifiers);
+    #####:  802:	if (p && isfunc(p->type) && p->defined)
+    #####:  803:		error("redefinition of `%s' previously defined at %w\n",
+        -:  804:			p->name, &p->src);
+    #####:  805:	cfunc = dclglobal(sclass, id, ty, &pt);
+    #####:  806:	cfunc->u.f.label = genlabel(1);
+    #####:  807:	cfunc->u.f.callee = callee;
+    #####:  808:	cfunc->u.f.pt = src;
+    #####:  809:	cfunc->defined = 1;
+    #####:  810:	if (xref)
+    #####:  811:		use(cfunc, cfunc->src);
+    #####:  812:	if (Pflag)
+    #####:  813:		printproto(cfunc, cfunc->u.f.callee);
+    #####:  814:	if (ncalled >= 0)
+    #####:  815:		ncalled = findfunc(cfunc->name, pt.file);
+    #####:  816:	labels   = table(NULL, LABELS);
+    #####:  817:	stmtlabs = table(NULL, LABELS);
+    #####:  818:	refinc = 1.0;
+    #####:  819:	regcount = 0;
+    #####:  820:	codelist = &codehead;
+    #####:  821:	codelist->next = NULL;
+    #####:  822:	if (!IR->wants_callb && isstruct(rty))
+    #####:  823:		retv = genident(AUTO, ptr(rty), PARAM);
+    #####:  824:	compound(0, NULL, 0);
+        -:  825:
+        -:  826:	{
+    #####:  827:		Code cp;
+    #####:  828:		for (cp = codelist; cp->kind < Label; cp = cp->prev)
+        -:  829:			;
+    #####:  830:		if (cp->kind != Jump) {
+    #####:  831:			if (rty != voidtype) {
+    #####:  832:				warning("missing return value\n");
+    #####:  833:				retcode(cnsttree(inttype, 0L));
+        -:  834:			} else
+    #####:  835:				retcode(NULL);
+        -:  836:		}
+        -:  837:	}
+    #####:  838:	definelab(cfunc->u.f.label);
+    #####:  839:	if (events.exit)
+    #####:  840:		apply(events.exit, cfunc, NULL);
+    #####:  841:	walk(NULL, 0, 0);
+    #####:  842:	exitscope();
+    #####:  843:	assert(level == PARAM);
+    #####:  844:	foreach(identifiers, level, checkref, NULL);
+    #####:  845:	if (!IR->wants_callb && isstruct(rty)) {
+    #####:  846:		Symbol *a;
+    #####:  847:		a = newarray(n + 2, sizeof *a, FUNC);
+    #####:  848:		a[0] = retv;
+    #####:  849:		memcpy(&a[1], callee, (n+1)*sizeof *callee);
+    #####:  850:		callee = a;
+    #####:  851:		a = newarray(n + 2, sizeof *a, FUNC);
+    #####:  852:		NEW(a[0], FUNC);
+    #####:  853:		*a[0] = *retv;
+    #####:  854:		memcpy(&a[1], caller, (n+1)*sizeof *callee);
+    #####:  855:		caller = a;
+        -:  856:	}
+    #####:  857:	if (!IR->wants_argb)
+    #####:  858:		for (i = 0; caller[i]; i++)
+    #####:  859:			if (isstruct(caller[i]->type)) {
+    #####:  860:				caller[i]->type = ptr(caller[i]->type);
+    #####:  861:				callee[i]->type = ptr(callee[i]->type);
+    #####:  862:				caller[i]->structarg = callee[i]->structarg = 1;
+        -:  863:			}
+    #####:  864:	if (glevel > 1)	for (i = 0; callee[i]; i++) callee[i]->sclass = AUTO;
+    #####:  865:	if (cfunc->sclass != STATIC)
+    #####:  866:		(*IR->export)(cfunc);
+    #####:  867:	if (glevel && IR->stabsym) {
+    #####:  868:		swtoseg(CODE); (*IR->stabsym)(cfunc); }
+    #####:  869:	swtoseg(CODE);
+    #####:  870:	(*IR->function)(cfunc, caller, callee, cfunc->u.f.ncalls);
+    #####:  871:	if (glevel && IR->stabfend)
+    #####:  872:		(*IR->stabfend)(cfunc, lineno);
+    #####:  873:	foreach(stmtlabs, LABELS, checklab, NULL);
+    #####:  874:	exitscope();
+    #####:  875:	expect('}');
+        -:  876:    // added by liujian, 2011.11.03
+        -:  877:    // print_code_list();
+    #####:  878:	labels = stmtlabs = NULL;
+    #####:  879:	retv  = NULL;
+    #####:  880:	cfunc = NULL;
+        -:  881:}
+function oldparam called 0 returned 0% blocks executed 0%
+    #####:  882:static void oldparam(Symbol p, void *cl) {
+    #####:  883:	int i;
+    #####:  884:	Symbol *callee = cl;
+        -:  885:
+    #####:  886:	for (i = 0; callee[i]; i++)
+    #####:  887:		if (p->name == callee[i]->name) {
+    #####:  888:			callee[i] = p;
+    #####:  889:			return;
+        -:  890:		}
+    #####:  891:	error("declared parameter `%s' is missing\n", p->name);
+        -:  892:}
+function compound called 0 returned 0% blocks executed 0%
+    #####:  893:void compound(int loop, struct swtch *swp, int lev) {
+    #####:  894:	Code cp;
+    #####:  895:	int nregs;
+        -:  896:
+    #####:  897:	walk(NULL, 0, 0);
+    #####:  898:	cp = code(Blockbeg);
+    #####:  899:	enterscope();
+    #####:  900:	assert(level >= LOCAL);
+    #####:  901:	if (level == LOCAL && events.entry)
+    #####:  902:		apply(events.entry, cfunc, NULL);
+    #####:  903:	definept(NULL);
+    #####:  904:	expect('{');
+    #####:  905:	autos = registers = NULL;
+    #####:  906:	if (level == LOCAL && IR->wants_callb
+        -:  907:	&& isstruct(freturn(cfunc->type))) {
+    #####:  908:		retv = genident(AUTO, ptr(freturn(cfunc->type)), level);
+    #####:  909:		retv->defined = 1;
+    #####:  910:		retv->ref = 1;
+    #####:  911:		registers = append(retv, registers);
+        -:  912:	}
+    #####:  913:	while (kind[t] == CHAR || kind[t] == STATIC
+        -:  914:	|| istypename(t, tsym) && getchr() != ':')
+    #####:  915:		decl(dcllocal);
+        -:  916:	{
+    #####:  917:		int i;
+    #####:  918:		Symbol *a = ltov(&autos, STMT);
+    #####:  919:		nregs = length(registers);
+    #####:  920:		for (i = 0; a[i]; i++)
+    #####:  921:			registers = append(a[i], registers);
+    #####:  922:		cp->u.block.locals = ltov(&registers, FUNC);
+        -:  923:	}
+    #####:  924:	if (events.blockentry)
+    #####:  925:		apply(events.blockentry, cp->u.block.locals, NULL);
+    #####:  926:	while (kind[t] == IF || kind[t] == ID)
+    #####:  927:		statement(loop, swp, lev);
+    #####:  928:	walk(NULL, 0, 0);
+    #####:  929:	foreach(identifiers, level, checkref, NULL);
+        -:  930:	{
+    #####:  931:		int i = nregs, j;
+    #####:  932:		Symbol p;
+    #####:  933:		for ( ; (p = cp->u.block.locals[i]) != NULL; i++) {
+    #####:  934:			for (j = i; j > nregs
+        -:  935:				&& cp->u.block.locals[j-1]->ref < p->ref; j--)
+    #####:  936:				cp->u.block.locals[j] = cp->u.block.locals[j-1];
+    #####:  937:			cp->u.block.locals[j] = p;
+        -:  938:		}
+        -:  939:	}
+    #####:  940:	if (events.blockexit)
+    #####:  941:		apply(events.blockexit, cp->u.block.locals, NULL);
+    #####:  942:	cp->u.block.level = level;
+    #####:  943:	cp->u.block.identifiers = identifiers;
+    #####:  944:	cp->u.block.types = types;
+    #####:  945:	code(Blockend)->u.begin = cp;
+    #####:  946:	if (reachable(Gen))
+    #####:  947:		definept(NULL);
+    #####:  948:	if (level > LOCAL) {
+    #####:  949:		exitscope();
+    #####:  950:		expect('}');
+        -:  951:	}
+        -:  952:}
+function checkref called 2 returned 100% blocks executed 15%
+        2:  953:static void checkref(Symbol p, void *cl) {
+        2:  954:	if (p->scope >= PARAM
+        -:  955:	&& (isvolatile(p->type) || isfunc(p->type)))
+    #####:  956:		p->addressed = 1;
+        2:  957:	if (Aflag >= 2 && p->defined && p->ref == 0) {
+    #####:  958:		if (p->sclass == STATIC)
+    #####:  959:			warning("static `%t %s' is not referenced\n",
+        -:  960:				p->type, p->name);
+    #####:  961:		else if (p->scope == PARAM)
+    #####:  962:			warning("parameter `%t %s' is not referenced\n",
+        -:  963:				p->type, p->name);
+    #####:  964:		else if (p->scope >= LOCAL && p->sclass != EXTERN)
+    #####:  965:			warning("local `%t %s' is not referenced\n",
+        -:  966:				p->type, p->name);
+        -:  967:	}
+        2:  968:	if (p->sclass == AUTO
+        -:  969:	&& (p->scope  == PARAM && regcount == 0
+        -:  970:	 || p->scope  >= LOCAL)
+        -:  971:	&& !p->addressed && isscalar(p->type) && p->ref >= 3.0)
+    #####:  972:		p->sclass = REGISTER;
+        2:  973:	if (level == GLOBAL && p->sclass == STATIC && !p->defined
+        -:  974:	&& isfunc(p->type) && p->ref)
+    #####:  975:		error("undefined static `%t %s'\n", p->type, p->name);
+        2:  976:	assert(!(level == GLOBAL && p->sclass == STATIC && !p->defined && !isfunc(p->type)));
+        -:  977:}
+function dcllocal called 0 returned 0% blocks executed 0%
+    #####:  978:static Symbol dcllocal(int sclass, char *id, Type ty, Coordinate *pos) {
+    #####:  979:	Symbol p, q;
+        -:  980:
+    #####:  981:	if (sclass == 0)
+    #####:  982:		sclass = isfunc(ty) ? EXTERN : AUTO;
+    #####:  983:	else if (isfunc(ty) && sclass != EXTERN) {
+    #####:  984:		error("invalid storage class `%k' for `%t %s'\n",
+        -:  985:			sclass, ty, id);
+    #####:  986:		sclass = EXTERN;
+    #####:  987:	} else if (sclass == REGISTER
+        -:  988:	&& (isvolatile(ty) || isstruct(ty) || isarray(ty))) {
+    #####:  989:		warning("register declaration ignored for `%t %s'\n",
+        -:  990:			ty, id);
+    #####:  991:		sclass = AUTO;
+        -:  992:	}
+    #####:  993:	q = lookup(id, identifiers);
+    #####:  994:	if (q && q->scope >= level
+        -:  995:	||  q && q->scope == PARAM && level == LOCAL)
+    #####:  996:		if (sclass == EXTERN && q->sclass == EXTERN
+        -:  997:		&& eqtype(q->type, ty, 1))
+    #####:  998:			ty = compose(ty, q->type);
+        -:  999:		else
+    #####: 1000:			error("redeclaration of `%s' previously declared at %w\n", q->name, &q->src);
+        -: 1001:
+    #####: 1002:	assert(level >= LOCAL);
+    #####: 1003:	p = install(id, &identifiers, level, sclass == STATIC || sclass == EXTERN ? PERM : FUNC);
+    #####: 1004:	p->type = ty;
+    #####: 1005:	p->sclass = sclass;
+    #####: 1006:	p->src = *pos;
+    #####: 1007:	switch (sclass) {
+    #####: 1008:	case EXTERN:   q = lookup(id, globals);
+    #####: 1009:		       if (q == NULL || q->sclass == TYPEDEF || q->sclass == ENUM) {
+    #####: 1010:		       	q = lookup(id, externals);
+    #####: 1011:		       	if (q == NULL) {
+    #####: 1012:		       		q = install(p->name, &externals, GLOBAL, PERM);
+    #####: 1013:		       		q->type = p->type;
+    #####: 1014:		       		q->sclass = EXTERN;
+    #####: 1015:		       		q->src = src;
+    #####: 1016:		       		(*IR->defsymbol)(q);
+        -: 1017:		       	}
+        -: 1018:		       }
+    #####: 1019:		       if (!eqtype(p->type, q->type, 1))
+    #####: 1020:		       	warning("declaration of `%s' does not match previous declaration at %w\n", q->name, &q->src);
+        -: 1021:
+    #####: 1022:		       p->u.alias = q; break;
+    #####: 1023:	case STATIC:   (*IR->defsymbol)(p);
+    #####: 1024:		       initglobal(p, 0);
+    #####: 1025:		       if (!p->defined)
+    #####: 1026:		       	if (p->type->size > 0) {
+    #####: 1027:		       		defglobal(p, BSS);
+    #####: 1028:		       		(*IR->space)(p->type->size);
+        -: 1029:		       	} else
+    #####: 1030:		       		error("undefined size for `%t %s'\n",
+        -: 1031:		       			p->type, p->name);
+    #####: 1032:		       p->defined = 1; break;
+    #####: 1033:	case REGISTER: registers = append(p, registers);
+    #####: 1034:		       regcount++;
+    #####: 1035:		       p->defined = 1;
+    #####: 1036: break;
+    #####: 1037:	case AUTO:     autos = append(p, autos);
+    #####: 1038:		       p->defined = 1; break;
+    #####: 1039:	default: assert(0);
+        -: 1040:	}
+    #####: 1041:	if (t == '=') {
+    #####: 1042:		Tree e;
+    #####: 1043:		if (sclass == EXTERN)
+    #####: 1044:			error("illegal initialization of `extern %s'\n", id);
+    #####: 1045:		t = gettok();
+    #####: 1046:		definept(NULL);
+    #####: 1047:		if (isscalar(p->type)
+        -: 1048:		||  isstruct(p->type) && t != '{') {
+    #####: 1049:			if (t == '{') {
+    #####: 1050:				t = gettok();
+    #####: 1051:				e = expr1(0);
+    #####: 1052:				expect('}');
+        -: 1053:			} else
+    #####: 1054:				e = expr1(0);
+        -: 1055:		} else {
+    #####: 1056:			Symbol t1;
+    #####: 1057:			Type ty = p->type, ty1 = ty;
+    #####: 1058:			while (isarray(ty1))
+    #####: 1059:				ty1 = ty1->type;
+    #####: 1060:			if (!isconst(ty) && (!isarray(ty) || !isconst(ty1)))
+    #####: 1061:				ty = qual(CONST, ty);
+    #####: 1062:			t1 = genident(STATIC, ty, GLOBAL);
+    #####: 1063:			initglobal(t1, 1);
+    #####: 1064:			if (isarray(p->type) && p->type->size == 0
+        -: 1065:			&& t1->type->size > 0)
+    #####: 1066:				p->type = array(p->type->type,
+        -: 1067:					t1->type->size/t1->type->type->size, 0);
+    #####: 1068:			e = idtree(t1);
+        -: 1069:		}
+    #####: 1070:		walk(root(asgn(p, e)), 0, 0);
+    #####: 1071:		p->ref = 1;
+        -: 1072:	}
+    #####: 1073:	if (!isfunc(p->type) && p->defined && p->type->size <= 0)
+    #####: 1074:		error("undefined size for `%t %s'\n", p->type, id);
+    #####: 1075:	return p;
+        -: 1076:}
+function finalize called 1 returned 100% blocks executed 100%
+        1: 1077:void finalize(void) {
+        1: 1078:	foreach(externals,   GLOBAL,    doextern, NULL);
+        1: 1079:	foreach(identifiers, GLOBAL,    doglobal, NULL);
+        1: 1080:	foreach(identifiers, GLOBAL,    checkref, NULL);
+        1: 1081:	foreach(constants,   CONSTANTS, doconst,  NULL);
+        -: 1082:}
+function doextern called 0 returned 0% blocks executed 0%
+    #####: 1083:static void doextern(Symbol p, void *cl) {
+    #####: 1084:	(*IR->import)(p);
+        -: 1085:}
+function doglobal called 2 returned 100% blocks executed 30%
+        2: 1086:static void doglobal(Symbol p, void *cl) {
+        2: 1087:	if (!p->defined && (p->sclass == EXTERN
+        -: 1088:	|| isfunc(p->type) && p->sclass == AUTO))
+    #####: 1089:		(*IR->import)(p);
+        2: 1090:	else if (!p->defined && !isfunc(p->type)
+        -: 1091:	&& (p->sclass == AUTO || p->sclass == STATIC)) {
+    #####: 1092:		if (isarray(p->type)
+        -: 1093:		&& p->type->size == 0 && p->type->type->size > 0)
+    #####: 1094:			p->type = array(p->type->type, 1, 0);
+    #####: 1095:		if (p->type->size > 0) {
+    #####: 1096:			defglobal(p, BSS);
+    #####: 1097:			(*IR->space)(p->type->size);
+    #####: 1098:			if (glevel > 0 && IR->stabsym)
+    #####: 1099:				(*IR->stabsym)(p);
+        -: 1100:		} else
+    #####: 1101:			error("undefined size for `%t %s'\n",
+        -: 1102:				p->type, p->name);
+    #####: 1103:		p->defined = 1;
+        -: 1104:	}
+        2: 1105:	if (Pflag
+        -: 1106:	&& !isfunc(p->type)
+        -: 1107:	&& !p->generated && p->sclass != EXTERN)
+    #####: 1108:		printdecl(p, p->type);
+        -: 1109:}
+function doconst called 0 returned 0% blocks executed 0%
+    #####: 1110:void doconst(Symbol p, void *cl) {
+    #####: 1111:	if (p->u.c.loc) {
+    #####: 1112:		assert(p->u.c.loc->u.seg == 0); 
+    #####: 1113:		defglobal(p->u.c.loc, LIT);
+    #####: 1114:		if (isarray(p->type) && p->type->type == widechar) {
+    #####: 1115:			unsigned int *s = p->u.c.v.p;
+    #####: 1116:			int n = p->type->size/widechar->size;
+    #####: 1117:			while (n-- > 0) {
+    #####: 1118:				Value v;
+    #####: 1119:				v.u = *s++;
+    #####: 1120:				(*IR->defconst)(widechar->op, widechar->size, v);
+        -: 1121:			}
+    #####: 1122:		} else if (isarray(p->type))
+    #####: 1123:			(*IR->defstring)(p->type->size, p->u.c.v.p);
+        -: 1124:		else
+    #####: 1125:			(*IR->defconst)(p->type->op, p->type->size, p->u.c.v);
+    #####: 1126:		p->u.c.loc = NULL;
+        -: 1127:	}
+        -: 1128:}
+function checklab called 0 returned 0% blocks executed 0%
+    #####: 1129:void checklab(Symbol p, void *cl) {
+    #####: 1130:	if (!p->defined)
+    #####: 1131:		error("undefined label `%s'\n", p->name);
+    #####: 1132:	p->defined = 1;
+        -: 1133:}
+        -: 1134:
+function enumdcl called 0 returned 0% blocks executed 0%
+    #####: 1135:Type enumdcl(void) {
+    #####: 1136:	char *tag;
+    #####: 1137:	Type ty;
+    #####: 1138:	Symbol p;
+    #####: 1139:	Coordinate pos;
+        -: 1140:
+    #####: 1141:	t = gettok();
+    #####: 1142:	pos = src;
+    #####: 1143:	if (t == ID) {
+    #####: 1144:		tag = token;
+    #####: 1145:		t = gettok();
+        -: 1146:	} else
+    #####: 1147:		tag = "";
+    #####: 1148:	if (t == '{') {
+    #####: 1149:		static char follow[] = { IF, 0 };
+    #####: 1150:		int n = 0;
+    #####: 1151:		long k = -1;
+    #####: 1152:		List idlist = 0;
+    #####: 1153:		ty = newstruct(ENUM, tag);
+    #####: 1154:		t = gettok();
+    #####: 1155:		if (t != ID)
+    #####: 1156:			error("expecting an enumerator identifier\n");
+    #####: 1157:		while (t == ID) {
+    #####: 1158:			char *id = token;
+    #####: 1159:			Coordinate s;
+    #####: 1160:			if (tsym && tsym->scope == level)
+    #####: 1161:				error("redeclaration of `%s' previously declared at %w\n",
+        -: 1162:					token, &tsym->src);
+    #####: 1163:			s = src;
+    #####: 1164:			t = gettok();
+    #####: 1165:			if (t == '=') {
+    #####: 1166:				t = gettok();
+    #####: 1167:				k = intexpr(0, 0);
+        -: 1168:			} else {
+    #####: 1169:				if (k == inttype->u.sym->u.limits.max.i)
+    #####: 1170:					error("overflow in value for enumeration constant `%s'\n", id);
+    #####: 1171:				k++;
+        -: 1172:			}
+    #####: 1173:			p = install(id, &identifiers, level,  level < LOCAL ? PERM : FUNC);
+    #####: 1174:			p->src = s;
+    #####: 1175:			p->type = ty;
+    #####: 1176:			p->sclass = ENUM;
+    #####: 1177:			p->u.value = k;
+    #####: 1178:			idlist = append(p, idlist);
+    #####: 1179:			n++;
+    #####: 1180:			if (Aflag >= 2 && n == 128)
+    #####: 1181:				warning("more than 127 enumeration constants in `%t'\n", ty);
+    #####: 1182:			if (t != ',')
+    #####: 1183:				break;
+    #####: 1184:			t = gettok();
+    #####: 1185:			if (Aflag >= 2 && t == '}')
+    #####: 1186:				warning("non-ANSI trailing comma in enumerator list\n");
+        -: 1187:		}
+    #####: 1188:		test('}', follow);
+    #####: 1189:		ty->type = inttype;
+    #####: 1190:		ty->size = ty->type->size;
+    #####: 1191:		ty->align = ty->type->align;
+    #####: 1192:		ty->u.sym->u.idlist = ltov(&idlist, PERM);
+    #####: 1193:		ty->u.sym->defined = 1;
+    #####: 1194:	} else if ((p = lookup(tag, types)) != NULL && p->type->op == ENUM) {
+    #####: 1195:		ty = p->type;
+    #####: 1196:		if (t == ';')
+    #####: 1197:			error("empty declaration\n");
+        -: 1198:	} else {
+    #####: 1199:		error("unknown enumeration `%s'\n",  tag);
+    #####: 1200:		ty = newstruct(ENUM, tag);
+    #####: 1201:		ty->type = inttype;
+        -: 1202:	}
+    #####: 1203:	if (*tag && xref)
+    #####: 1204:		use(p, pos);
+    #####: 1205:	return ty;
+        -: 1206:}
+        -: 1207:
+function typename called 0 returned 0% blocks executed 0%
+    #####: 1208:Type typename(void) {
+    #####: 1209:	Type ty = specifier(NULL);
+        -: 1210:
+    #####: 1211:	if (t == '*' || t == '(' || t == '[') {
+    #####: 1212:		ty = dclr(ty, NULL, NULL, 1);
+    #####: 1213:		if (Aflag >= 1 && !hasproto(ty))
+    #####: 1214:			warning("missing prototype\n");
+        -: 1215:	}
+    #####: 1216:	return ty;
+        -: 1217:}
+        -: 1218:

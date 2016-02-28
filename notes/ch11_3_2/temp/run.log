@@ -1,0 +1,10 @@
+test.c:1: liujan: basetype for dclr is: `int' in line 1
+test.c:1: liujan: type for dclr1 is NULL,  in line 1
+//param! test.c:1: liujan: type for dclr is: `int'
+test.c:1: liujan: basetype for dclr is: `int' in line 1
+test.c:1: liujan: type for dclr1 is NULL,  in line 1
+//param! test.c:1: liujan: type for dclr is: `int'
+//ret type! test.c:1: liujan: basetype for dclr is: `int' in line 1
+test.c:1: liujan: type for dclr1 is: `void func(int,int)' in line 1
+test.c:1: liujan: type for dclr is: `int func(int,int)'
+test.c:1: missing identifier

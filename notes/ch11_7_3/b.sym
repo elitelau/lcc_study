@@ -1,0 +1,19 @@
+---------------------------- global symbols ------------------------------------
+   printf: [extern][defined=0][oldstyle][ref=1.0] | extern int printf();
+   set_counter: [extern][defined=0][newstyle][ref=1.0] | extern void set_counter(void);
+   counter: [extern][defined=0][ref=3.0] | extern int counter;
+
+------------------------- identifiers symbols --------------------------------
+   main: [defined=1][newstyle][ref=0.0] | int main(int, char **);
+   g: [defined=1][newstyle][ref=1.0] | void g(void);
+   f: [defined=1][newstyle][ref=1.0] | void f(void);
+
+--------------------------- constant symbols -----------------------------------
+   8: [static][defined=1][ref=0.0] | static int 8;
+   0: [static][defined=1][ref=0.0] | static int 0;
+   counter value is: %d.
+: [static][defined=1][ref=0.0] | static char counter value is: %d.
+[23];
+   4: [static][defined=1][ref=0.0] | static int 4;
+   1: [static][defined=1][ref=0.0] | static int 1;
+-------------------------------------------------------------------------------

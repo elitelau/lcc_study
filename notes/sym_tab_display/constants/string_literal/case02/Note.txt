@@ -1,0 +1,11 @@
+constant() function is called by 4 times:
+   1 times from primary();   // for u.c.loc
+   2 times from intconst();
+                  |-- 2 times in listnodes(), when enter "case ASGN:", value 4 for size & align
+   1 times from listnodes();  // there is CNST tree for line8
+
+   integer/string constant analysis:
+   > string literal: line3
+   > 4: size & alignment of integer type
+   > 13: line8
+

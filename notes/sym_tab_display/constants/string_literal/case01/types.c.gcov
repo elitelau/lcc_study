@@ -1,0 +1,789 @@
+        -:    0:Source:src/types.c
+        -:    0:Graph:lcc/types.gcno
+        -:    0:Data:lcc/types.gcda
+        -:    0:Runs:1
+        -:    0:Programs:1
+        -:    1:#include "c.h"
+        -:    2:#include <float.h>
+        -:    3:
+        -:    4:static char rcsid[] = "$Id: types.nw,v 2.31 1998/05/26 20:50:28 drh Exp $";
+        -:    5:
+        -:    6:static Field isfield(const char *, Field);
+        -:    7:static Type type(int, Type, int, int, void *);
+        -:    8:
+        -:    9:static struct entry {
+        -:   10:	struct type type;
+        -:   11:	struct entry *link;
+        -:   12:} *typetable[128];
+        -:   13:static int maxlevel;
+        -:   14:
+        -:   15:static Symbol pointersym;
+        -:   16:
+        -:   17:Type chartype;			/* char */
+        -:   18:Type doubletype;		/* double */
+        -:   19:Type floattype;			/* float */
+        -:   20:Type inttype;			/* signed int */
+        -:   21:Type longdouble;		/* long double */
+        -:   22:Type longtype;			/* long */
+        -:   23:Type longlong;			/* long long */
+        -:   24:Type shorttype;			/* signed short int */
+        -:   25:Type signedchar;		/* signed char */
+        -:   26:Type unsignedchar;		/* unsigned char */
+        -:   27:Type unsignedlong;		/* unsigned long int */
+        -:   28:Type unsignedlonglong;		/* unsigned long long int */
+        -:   29:Type unsignedshort;		/* unsigned short int */
+        -:   30:Type unsignedtype;		/* unsigned int */
+        -:   31:Type funcptype;			/* void (*)() */
+        -:   32:Type charptype;			/* char* */
+        -:   33:Type voidptype;			/* void* */
+        -:   34:Type voidtype;			/* basic types: void */
+        -:   35:Type unsignedptr;		/* unsigned type to hold void* */
+        -:   36:Type signedptr;			/* signed type to hold void* */
+        -:   37:Type widechar;			/* unsigned type that represents wchar_t */
+        -:   38:
+function xxinit called 14 returned 100% blocks executed 82%
+       14:   39:static Type xxinit(int op, char *name, Metrics m) {
+       14:   40:	Symbol p = install(string(name), &types, GLOBAL, PERM);
+       14:   41:	Type ty = type(op, 0, m.size, m.align, p);
+        -:   42:
+       14:   43:	assert(ty->align == 0 || ty->size%ty->align == 0);
+       14:   44:	p->type = ty;
+       14:   45:	p->addressed = m.outofline;
+       14:   46:	switch (ty->op) {
+        -:   47:	case INT:
+        6:   48:		p->u.limits.max.i = ones(8*ty->size)>>1;
+        6:   49:		p->u.limits.min.i = -p->u.limits.max.i - 1;
+        6:   50:		break;
+        -:   51:	case UNSIGNED:
+        5:   52:		p->u.limits.max.u = ones(8*ty->size);
+        5:   53:		p->u.limits.min.u = 0;
+        5:   54:		break;
+        -:   55:	case FLOAT:
+        3:   56:		if (ty->size == sizeof (float))
+        1:   57:			p->u.limits.max.d =  FLT_MAX;
+        2:   58:		else if (ty->size == sizeof (double))
+        2:   59:			p->u.limits.max.d =  DBL_MAX;
+        -:   60:		else
+    #####:   61:			p->u.limits.max.d = LDBL_MAX;
+        3:   62:		p->u.limits.min.d = -p->u.limits.max.d;
+        3:   63:		break;
+    #####:   64:	default: assert(0);
+        -:   65:	}
+       14:   66:	return ty;
+        -:   67:}
+function type called 25 returned 100% blocks executed 94%
+       25:   68:static Type type(int op, Type ty, int size, int align, void *sym) {
+       25:   69:	unsigned h = (op^((unsigned long)ty>>3))
+       25:   70:&(NELEMS(typetable)-1);
+       25:   71:	struct entry *tn;
+        -:   72:
+       25:   73:	if (op != FUNCTION && (op != ARRAY || size > 0))
+       50:   74:		for (tn = typetable[h]; tn; tn = tn->link)
+       29:   75:			if (tn->type.op    == op   && tn->type.type  == ty
+        -:   76:			&&  tn->type.size  == size && tn->type.align == align
+        -:   77:			&&  tn->type.u.sym == sym)
+        1:   78:				return &tn->type;
+       24:   79:	NEW0(tn, PERM);
+       24:   80:	tn->type.op = op;
+       24:   81:	tn->type.type = ty;
+       24:   82:	tn->type.size = size;
+       24:   83:	tn->type.align = align;
+       24:   84:	tn->type.u.sym = sym;
+       24:   85:	tn->link = typetable[h];
+       24:   86:	typetable[h] = tn;
+       24:   87:	return &tn->type;
+        -:   88:}
+function type_init called 4 returned 100% blocks executed 68%
+        4:   89:void type_init(int argc, char *argv[]) {
+        4:   90:	static int inited;
+        4:   91:	int i;
+        -:   92:
+        4:   93:	if (inited)
+        3:   94:		return;
+        1:   95:	inited = 1;
+        1:   96:	if (!IR)
+    #####:   97:		return;
+        6:   98:	for (i = 1; i < argc; i++) {
+        5:   99:		int size, align, outofline;
+        5:  100:		if (strncmp(argv[i], "-unsigned_char=", 15) == 0)
+    #####:  101:			IR->unsigned_char = argv[i][15] - '0';
+        -:  102:#define xx(name) \
+        -:  103:		else if (sscanf(argv[i], "-" #name "=%d,%d,%d", &size, &align, &outofline) == 3) { \
+        -:  104:			IR->name.size = size; IR->name.align = align; \
+        -:  105:			IR->name.outofline = outofline; }
+        5:  106:	xx(charmetric)
+        5:  107:	xx(shortmetric)
+        5:  108:	xx(intmetric)
+        5:  109:	xx(longmetric)
+        5:  110:	xx(longlongmetric)
+        5:  111:	xx(floatmetric)
+        5:  112:	xx(doublemetric)
+        5:  113:	xx(longdoublemetric)
+        5:  114:	xx(ptrmetric)
+        5:  115:	xx(structmetric)
+        -:  116:#undef xx
+        -:  117:	}
+        -:  118:#define xx(v,name,op,metrics) v=xxinit(op,name,IR->metrics)
+        1:  119:	xx(chartype,        "char",              IR->unsigned_char ? UNSIGNED : INT,charmetric);
+        1:  120:	xx(doubletype,      "double",            FLOAT,   doublemetric);
+        1:  121:	xx(floattype,       "float",             FLOAT,   floatmetric);
+        1:  122:	xx(inttype,         "int",               INT,     intmetric);
+        1:  123:	xx(longdouble,      "long double",       FLOAT,   longdoublemetric);
+        1:  124:	xx(longtype,        "long int",          INT,     longmetric);
+        1:  125:	xx(longlong,        "long long int",     INT,     longlongmetric);
+        1:  126:	xx(shorttype,       "short",             INT,     shortmetric);
+        1:  127:	xx(signedchar,      "signed char",       INT,     charmetric);
+        1:  128:	xx(unsignedchar,    "unsigned char",     UNSIGNED,charmetric);
+        1:  129:	xx(unsignedlong,    "unsigned long",     UNSIGNED,longmetric);
+        1:  130:	xx(unsignedshort,   "unsigned short",    UNSIGNED,shortmetric);
+        1:  131:	xx(unsignedtype,    "unsigned int",      UNSIGNED,intmetric);
+        1:  132:	xx(unsignedlonglong,"unsigned long long",UNSIGNED,longlongmetric);
+        -:  133:#undef xx
+        -:  134:	{
+        1:  135:		Symbol p;
+        1:  136:		p = install(string("void"), &types, GLOBAL, PERM);
+        1:  137:		voidtype = type(VOID, NULL, 0, 0, p);
+        1:  138:		p->type = voidtype;
+        -:  139:	}
+        1:  140:	pointersym = install(string("T*"), &types, GLOBAL, PERM);
+        1:  141:	pointersym->addressed = IR->ptrmetric.outofline;
+        1:  142:	pointersym->u.limits.max.p = (void*)ones(8*IR->ptrmetric.size);
+        1:  143:	pointersym->u.limits.min.p = 0;
+        1:  144:	voidptype = ptr(voidtype);
+        1:  145:	funcptype = ptr(func(voidtype, NULL, 1));
+        1:  146:	charptype = ptr(chartype);
+        -:  147:#define xx(v,t) if (v==NULL && t->size==voidptype->size && t->align==voidptype->align) v=t
+        1:  148:	xx(unsignedptr,unsignedshort);
+        1:  149:	xx(unsignedptr,unsignedtype);
+        1:  150:	xx(unsignedptr,unsignedlong);
+        1:  151:	xx(unsignedptr,unsignedlonglong);
+        1:  152:	if (unsignedptr == NULL)
+    #####:  153:		unsignedptr = type(UNSIGNED, NULL, voidptype->size, voidptype->align, voidptype->u.sym);
+        1:  154:	xx(signedptr,shorttype);
+        1:  155:	xx(signedptr,inttype);
+        1:  156:	xx(signedptr,longtype);
+        1:  157:	xx(signedptr,longlong);
+        1:  158:	if (signedptr == NULL)
+    #####:  159:		signedptr = type(INT, NULL, voidptype->size, voidptype->align, voidptype->u.sym);
+        -:  160:#undef xx
+        1:  161:	widechar = unsignedshort;
+        7:  162:	for (i = 0; i < argc; i++) {
+        -:  163:#define xx(name,type) \
+        -:  164:		if (strcmp(argv[i], "-wchar_t=" #name) == 0) \
+        -:  165:			widechar = type;
+        6:  166:		xx(unsigned_char,unsignedchar)
+        6:  167:		xx(unsigned_int,unsignedtype)
+        6:  168:		xx(unsigned_short,unsignedshort)
+        -:  169:	}
+        -:  170:#undef xx
+        -:  171:}
+function rmtypes called 3 returned 100% blocks executed 13%
+        3:  172:void rmtypes(int lev) {
+        3:  173:	if (maxlevel >= lev) {
+    #####:  174:		int i;
+    #####:  175:		maxlevel = 0;
+    #####:  176:		for (i = 0; i < NELEMS(typetable); i++) {
+    #####:  177:			struct entry *tn, **tq = &typetable[i];
+    #####:  178:			while ((tn = *tq) != NULL)
+    #####:  179:				if (tn->type.op == FUNCTION)
+    #####:  180:					tq = &tn->link;
+    #####:  181:				else if (tn->type.u.sym && tn->type.u.sym->scope >= lev)
+    #####:  182:					*tq = tn->link;
+        -:  183:				else {
+    #####:  184:					if (tn->type.u.sym && tn->type.u.sym->scope > maxlevel)
+    #####:  185:						maxlevel = tn->type.u.sym->scope;
+    #####:  186:					tq = &tn->link;
+        -:  187:				}
+        -:  188:
+        -:  189:		}
+        -:  190:	}
+        -:  191:}
+function ptr called 5 returned 100% blocks executed 100%
+        5:  192:Type ptr(Type ty) {
+        5:  193:	return type(POINTER, ty, IR->ptrmetric.size,
+        -:  194:		IR->ptrmetric.align, pointersym);
+        -:  195:}
+function deref called 0 returned 0% blocks executed 0%
+    #####:  196:Type deref(Type ty) {
+    #####:  197:	if (isptr(ty))
+    #####:  198:		ty = ty->type;
+        -:  199:	else
+    #####:  200:		error("type error: %s\n", "pointer expected");
+    #####:  201:	return isenum(ty) ? unqual(ty)->type : ty;
+        -:  202:}
+function array called 1 returned 100% blocks executed 40%
+        1:  203:Type array(Type ty, int n, int a) {
+        1:  204:	assert(ty);
+        1:  205:	if (isfunc(ty)) {
+    #####:  206:		error("illegal type `array of %t'\n", ty);
+    #####:  207:		return array(inttype, n, 0);
+        -:  208:	}
+        1:  209:	if (isarray(ty) && ty->size == 0)
+    #####:  210:		error("missing array size\n");
+        1:  211:	if (ty->size == 0) {
+    #####:  212:		if (unqual(ty) == voidtype)
+    #####:  213:			error("illegal type `array of %t'\n", ty);
+    #####:  214:		else if (Aflag >= 2)
+    #####:  215:			warning("declaring type array of %t' is undefined\n", ty);
+        -:  216:
+        1:  217:	} else if (n > INT_MAX/ty->size) {
+    #####:  218:		error("size of `array of %t' exceeds %d bytes\n",
+        -:  219:			ty, INT_MAX);
+    #####:  220:		n = 1;
+        -:  221:	}
+        1:  222:	return type(ARRAY, ty, n*ty->size,
+        -:  223:		a ? a : ty->align, NULL);
+        -:  224:}
+function atop called 1 returned 100% blocks executed 60%
+        1:  225:Type atop(Type ty) {
+        1:  226:	if (isarray(ty))
+        1:  227:		return ptr(ty->type);
+    #####:  228:	error("type error: %s\n", "array expected");
+    #####:  229:	return ptr(ty);
+        -:  230:}
+function qual called 1 returned 100% blocks executed 55%
+        1:  231:Type qual(int op, Type ty) {
+        1:  232:	if (isarray(ty))
+    #####:  233:		ty = type(ARRAY, qual(op, ty->type), ty->size,
+        -:  234:			ty->align, NULL);
+        1:  235:	else if (isfunc(ty))
+    #####:  236:		warning("qualified function type ignored\n");
+        1:  237:	else if (isconst(ty)    && op == CONST
+        -:  238:	||       isvolatile(ty) && op == VOLATILE)
+    #####:  239:		error("illegal type `%k %t'\n", op, ty);
+        -:  240:	else {
+        1:  241:		if (isqual(ty)) {
+    #####:  242:			op += ty->op;
+    #####:  243:			ty = ty->type;
+        -:  244:		}
+        1:  245:		ty = type(op, ty, ty->size, ty->align, NULL);
+        -:  246:	}
+        1:  247:	return ty;
+        -:  248:}
+function func called 3 returned 100% blocks executed 71%
+        3:  249:Type func(Type ty, Type *proto, int style) {
+        3:  250:	if (ty && (isarray(ty) || isfunc(ty)))
+    #####:  251:		error("illegal return type `%t'\n", ty);
+        3:  252:	ty = type(FUNCTION, ty, 0, 0, NULL);
+        3:  253:	ty->u.f.proto = proto;
+        3:  254:	ty->u.f.oldstyle = style;
+        3:  255:	return ty;
+        -:  256:}
+function freturn called 3 returned 100% blocks executed 63%
+        3:  257:Type freturn(Type ty) {
+        3:  258:	if (isfunc(ty))
+        3:  259:		return ty->type;
+    #####:  260:	error("type error: %s\n", "function expected");
+    #####:  261:	return inttype;
+        -:  262:}
+function variadic called 0 returned 0% blocks executed 0%
+    #####:  263:int variadic(Type ty) {
+    #####:  264:	if (isfunc(ty) && ty->u.f.proto) {
+    #####:  265:		int i;
+    #####:  266:		for (i = 0; ty->u.f.proto[i]; i++)
+        -:  267:			;
+    #####:  268:		return i > 1 && ty->u.f.proto[i-1] == voidtype;
+        -:  269:	}
+    #####:  270:	return 0;
+        -:  271:}
+function newstruct called 0 returned 0% blocks executed 0%
+    #####:  272:Type newstruct(int op, char *tag) {
+    #####:  273:	Symbol p;
+        -:  274:
+    #####:  275:	assert(tag);
+    #####:  276:	if (*tag == 0)
+    #####:  277:		tag = stringd(genlabel(1));
+        -:  278:	else
+    #####:  279:		if ((p = lookup(tag, types)) != NULL && (p->scope == level
+        -:  280:		|| p->scope == PARAM && level == PARAM+1)) {
+    #####:  281:			if (p->type->op == op && !p->defined)
+    #####:  282:				return p->type;
+    #####:  283:			error("redefinition of `%s' previously defined at %w\n",
+        -:  284:				p->name, &p->src);
+        -:  285:		}
+    #####:  286:	p = install(tag, &types, level, PERM);
+    #####:  287:	p->type = type(op, NULL, 0, 0, p);
+    #####:  288:	if (p->scope > maxlevel)
+    #####:  289:		maxlevel = p->scope;
+    #####:  290:	p->src = src;
+    #####:  291:	return p->type;
+        -:  292:}
+function newfield called 0 returned 0% blocks executed 0%
+    #####:  293:Field newfield(char *name, Type ty, Type fty) {
+    #####:  294:	Field p, *q = &ty->u.sym->u.s.flist;
+        -:  295:
+    #####:  296:	if (name == NULL)
+    #####:  297:		name = stringd(genlabel(1));
+    #####:  298:	for (p = *q; p; q = &p->link, p = *q)
+    #####:  299:		if (p->name == name)
+    #####:  300:			error("duplicate field name `%s' in `%t'\n",
+        -:  301:				name, ty);
+    #####:  302:	NEW0(p, PERM);
+    #####:  303:	*q = p;
+    #####:  304:	p->name = name;
+    #####:  305:	p->type = fty;
+    #####:  306:	if (xref) {							/* omit */
+    #####:  307:		if (ty->u.sym->u.s.ftab == NULL)			/* omit */
+    #####:  308:			ty->u.sym->u.s.ftab = table(NULL, level);	/* omit */
+    #####:  309:		install(name, &ty->u.sym->u.s.ftab, 0, PERM)->src = src;/* omit */
+        -:  310:	}								/* omit */
+    #####:  311:	return p;
+        -:  312:}
+function eqtype called 1 returned 100% blocks executed 4%
+        1:  313:int eqtype(Type ty1, Type ty2, int ret) {
+        1:  314:	if (ty1 == ty2)
+        1:  315:		return 1;
+    #####:  316:	if (ty1->op != ty2->op)
+    #####:  317:		return 0;
+    #####:  318:	switch (ty1->op) {
+        -:  319:	case ENUM: case UNION: case STRUCT:
+        -:  320:	case UNSIGNED: case INT: case FLOAT:
+    #####:  321:		return 0;
+    #####:  322:	case POINTER:  return eqtype(ty1->type, ty2->type, 1);
+        -:  323:	case VOLATILE: case CONST+VOLATILE:
+    #####:  324:	case CONST:    return eqtype(ty1->type, ty2->type, 1);
+    #####:  325:	case ARRAY:    if (eqtype(ty1->type, ty2->type, 1)) {
+    #####:  326:		       	if (ty1->size == ty2->size)
+    #####:  327:		       		return 1;
+    #####:  328:		       	if (ty1->size == 0 || ty2->size == 0)
+    #####:  329:		       		return ret;
+        -:  330:		       }
+    #####:  331:		       return 0;
+    #####:  332:	case FUNCTION: if (eqtype(ty1->type, ty2->type, 1)) {
+    #####:  333:		       	Type *p1 = ty1->u.f.proto, *p2 = ty2->u.f.proto;
+    #####:  334:		       	if (p1 == p2)
+    #####:  335:		       		return 1;
+    #####:  336:		       	if (p1 && p2) {
+    #####:  337:		       		for ( ; *p1 && *p2; p1++, p2++)
+    #####:  338:					if (eqtype(unqual(*p1), unqual(*p2), 1) == 0)
+    #####:  339:						return 0;
+    #####:  340:				if (*p1 == NULL && *p2 == NULL)
+    #####:  341:					return 1;
+        -:  342:		       	} else {
+    #####:  343:		       		if (variadic(p1 ? ty1 : ty2))
+    #####:  344:					return 0;
+    #####:  345:				if (p1 == NULL)
+    #####:  346:					p1 = p2;
+    #####:  347:				for ( ; *p1; p1++) {
+    #####:  348:					Type ty = unqual(*p1);
+    #####:  349:					if (promote(ty) != (isenum(ty) ? ty->type : ty))
+    #####:  350:						return 0;
+        -:  351:				}
+    #####:  352:				return 1;
+        -:  353:		       	}
+        -:  354:		       }
+    #####:  355:		       return 0;
+        -:  356:	}
+    #####:  357:	assert(0); return 0;
+        -:  358:}
+function promote called 1 returned 100% blocks executed 29%
+        1:  359:Type promote(Type ty) {
+        1:  360:	ty = unqual(ty);
+        1:  361:	switch (ty->op) {
+        -:  362:	case ENUM:
+    #####:  363:		return inttype;
+        -:  364:	case INT:
+        1:  365:		if (ty->size < inttype->size)
+    #####:  366:			return inttype;
+    #####:  367:		break;
+        -:  368:	case UNSIGNED:
+    #####:  369:		if (ty->size < inttype->size)
+    #####:  370:			return inttype;
+    #####:  371:		if (ty->size < unsignedtype->size)
+    #####:  372:			return unsignedtype;
+    #####:  373:		break;
+        -:  374:	case FLOAT:
+    #####:  375:		if (ty->size < doubletype->size)
+    #####:  376:			return doubletype;
+        -:  377:	}
+        1:  378:	return ty;
+        -:  379:}
+function signedint called 0 returned 0% blocks executed 0%
+    #####:  380:Type signedint(Type ty) {
+    #####:  381:	if (ty->op == INT)
+    #####:  382:		return ty;
+    #####:  383:	assert(ty->op == UNSIGNED);
+        -:  384:#define xx(t) if (ty->size == t->size) return t
+    #####:  385:	xx(inttype);
+    #####:  386:	xx(longtype);
+    #####:  387:	xx(longlong);
+        -:  388:#undef xx
+    #####:  389:	assert(0); return NULL;
+        -:  390:}
+function compose called 0 returned 0% blocks executed 0%
+    #####:  391:Type compose(Type ty1, Type ty2) {
+    #####:  392:	if (ty1 == ty2)
+    #####:  393:		return ty1;
+    #####:  394:	assert(ty1->op == ty2->op);
+    #####:  395:	switch (ty1->op) {
+        -:  396:	case POINTER:
+    #####:  397:		return ptr(compose(ty1->type, ty2->type));
+        -:  398:	case CONST+VOLATILE:
+    #####:  399:		return qual(CONST, qual(VOLATILE,
+        -:  400:			compose(ty1->type, ty2->type)));
+        -:  401:	case CONST: case VOLATILE:
+    #####:  402:		return qual(ty1->op, compose(ty1->type, ty2->type));
+    #####:  403:	case ARRAY:    { Type ty = compose(ty1->type, ty2->type);
+    #####:  404:			 if (ty1->size && (ty1->type->size && ty2->size == 0 || ty1->size == ty2->size))
+    #####:  405:			 	return array(ty, ty1->size/ty1->type->size, ty1->align);
+    #####:  406:			 if (ty2->size && ty2->type->size && ty1->size == 0)
+    #####:  407:			 	return array(ty, ty2->size/ty2->type->size, ty2->align);
+    #####:  408:			 return array(ty, 0, 0);    }
+    #####:  409:	case FUNCTION: { Type *p1  = ty1->u.f.proto, *p2 = ty2->u.f.proto;
+    #####:  410:			 Type ty   = compose(ty1->type, ty2->type);
+    #####:  411:			 List tlist = NULL;
+    #####:  412:			 if (p1 == NULL && p2 == NULL)
+    #####:  413:			 	return func(ty, NULL, 1);
+    #####:  414:			 if (p1 && p2 == NULL)
+    #####:  415:			 	return func(ty, p1, ty1->u.f.oldstyle);
+    #####:  416:			 if (p2 && p1 == NULL)
+    #####:  417:			 	return func(ty, p2, ty2->u.f.oldstyle);
+    #####:  418:			 for ( ; *p1 && *p2; p1++, p2++) {
+    #####:  419:			 	Type ty = compose(unqual(*p1), unqual(*p2));
+    #####:  420:			 	if (isconst(*p1)    || isconst(*p2))
+    #####:  421:			 		ty = qual(CONST, ty);
+    #####:  422:			 	if (isvolatile(*p1) || isvolatile(*p2))
+    #####:  423:			 		ty = qual(VOLATILE, ty);
+    #####:  424:			 	tlist = append(ty, tlist);
+        -:  425:			 }
+    #####:  426:			 assert(*p1 == NULL && *p2 == NULL);
+    #####:  427:			 return func(ty, ltov(&tlist, PERM), 0); }
+        -:  428:	}
+    #####:  429:	assert(0); return NULL;
+        -:  430:}
+function ttob called 4 returned 100% blocks executed 45%
+        4:  431:int ttob(Type ty) {
+        4:  432:	switch (ty->op) {
+        -:  433:	case CONST: case VOLATILE: case CONST+VOLATILE:
+    #####:  434:		return ttob(ty->type);
+        -:  435:	case VOID: case INT: case UNSIGNED: case FLOAT:
+        2:  436:		return ty->op + sizeop(ty->size);
+        -:  437:	case POINTER:
+        2:  438:		return POINTER + sizeop(voidptype->size);
+        -:  439:	case FUNCTION:
+    #####:  440:		return POINTER + sizeop(funcptype->size);
+        -:  441:	case ARRAY: case STRUCT: case UNION:
+    #####:  442:		return STRUCT;
+        -:  443:	case ENUM:
+    #####:  444:		return INT + sizeop(inttype->size);
+        -:  445:	}
+    #####:  446:	assert(0); return INT;
+        -:  447:}
+function btot called 0 returned 0% blocks executed 0%
+    #####:  448:Type btot(int op, int size) {
+        -:  449:#define xx(ty) if (size == (ty)->size) return ty;
+    #####:  450:	switch (optype(op)) {
+        -:  451:	case F:
+    #####:  452:		xx(floattype);
+    #####:  453:		xx(doubletype);
+    #####:  454:		xx(longdouble);
+    #####:  455:		assert(0); return 0;
+        -:  456:	case I:
+    #####:  457:		if (chartype->op == INT)
+    #####:  458:			xx(chartype);
+    #####:  459:		xx(signedchar);
+    #####:  460:		xx(shorttype);
+    #####:  461:		xx(inttype);
+    #####:  462:		xx(longtype);
+    #####:  463:		xx(longlong);
+    #####:  464:		assert(0); return 0;
+        -:  465:	case U:
+    #####:  466:		if (chartype->op == UNSIGNED)
+    #####:  467:			xx(chartype);
+    #####:  468:		xx(unsignedchar);
+    #####:  469:		xx(unsignedshort);
+    #####:  470:		xx(unsignedtype);
+    #####:  471:		xx(unsignedlong);
+    #####:  472:		xx(unsignedlonglong);
+    #####:  473:		assert(0); return 0;
+        -:  474:	case P:
+    #####:  475:		xx(voidptype);
+    #####:  476:		xx(funcptype);
+    #####:  477:		assert(0); return 0;
+        -:  478:	}
+        -:  479:#undef xx
+    #####:  480:	assert(0); return 0;
+        -:  481:}
+function hasproto called 3 returned 100% blocks executed 50%
+        3:  482:int hasproto(Type ty) {
+        3:  483:	if (ty == 0)
+    #####:  484:		return 1;
+        3:  485:	switch (ty->op) {
+        -:  486:	case CONST: case VOLATILE: case CONST+VOLATILE: case POINTER:
+        -:  487:	case ARRAY:
+        2:  488:		return hasproto(ty->type);
+        -:  489:	case FUNCTION:
+    #####:  490:		return hasproto(ty->type) && ty->u.f.proto;
+        -:  491:	case STRUCT: case UNION:
+        -:  492:	case VOID:   case FLOAT: case ENUM:  case INT: case UNSIGNED:
+        1:  493:		return 1;
+        -:  494:	}
+    #####:  495:	assert(0); return 0;
+        -:  496:}
+        -:  497:/* fieldlist - construct a flat list of fields in type ty */
+function fieldlist called 0 returned 0% blocks executed 0%
+    #####:  498:Field fieldlist(Type ty) {
+    #####:  499:	return ty->u.sym->u.s.flist;
+        -:  500:}
+        -:  501:
+        -:  502:/* fieldref - find field name of type ty, return entry */
+function fieldref called 0 returned 0% blocks executed 0%
+    #####:  503:Field fieldref(const char *name, Type ty) {
+    #####:  504:	Field p = isfield(name, unqual(ty)->u.sym->u.s.flist);
+        -:  505:
+    #####:  506:	if (p && xref) {
+    #####:  507:		Symbol q;
+    #####:  508:		assert(unqual(ty)->u.sym->u.s.ftab);
+    #####:  509:		q = lookup(name, unqual(ty)->u.sym->u.s.ftab);
+    #####:  510:		assert(q);
+    #####:  511:		use(q, src);
+        -:  512:	}
+    #####:  513:	return p;
+        -:  514:}
+        -:  515:
+        -:  516:/* ftype - return a function type for rty function (ty,...)' */
+function ftype called 0 returned 0% blocks executed 0%
+    #####:  517:Type ftype(Type rty, Type ty) {
+    #####:  518:	List list = append(ty, NULL);
+        -:  519:
+    #####:  520:	list = append(voidtype, list);
+    #####:  521:	return func(rty, ltov(&list, PERM), 0);
+        -:  522:}
+        -:  523:
+        -:  524:/* isfield - if name is a field in flist, return pointer to the field structure */
+function isfield called 0 returned 0% blocks executed 0%
+    #####:  525:static Field isfield(const char *name, Field flist) {
+    #####:  526:	for ( ; flist; flist = flist->link)
+    #####:  527:		if (flist->name == name)
+    #####:  528:			break;
+    #####:  529:	return flist;
+        -:  530:}
+        -:  531:
+        -:  532:/* outtype - output type ty */
+function outtype called 1 returned 100% blocks executed 8%
+        1:  533:void outtype(Type ty, FILE *f) {
+        1:  534:	switch (ty->op) {
+        -:  535:	case CONST+VOLATILE: case CONST: case VOLATILE:
+    #####:  536:		fprint(f, "%k %t", ty->op, ty->type);
+    #####:  537:		break;
+        -:  538:	case STRUCT: case UNION: case ENUM:
+    #####:  539:		assert(ty->u.sym);
+    #####:  540:		if (ty->size == 0)
+    #####:  541:			fprint(f, "incomplete ");
+    #####:  542:		assert(ty->u.sym->name);
+    #####:  543:		if (*ty->u.sym->name >= '1' && *ty->u.sym->name <= '9') {
+    #####:  544:			Symbol p = findtype(ty);
+    #####:  545:			if (p == 0)
+    #####:  546:				fprint(f, "%k defined at %w", ty->op, &ty->u.sym->src);
+        -:  547:			else
+    #####:  548:				fprint(f, p->name);
+        -:  549:		} else {
+    #####:  550:			fprint(f, "%k %s", ty->op, ty->u.sym->name);
+    #####:  551:			if (ty->size == 0)
+    #####:  552:				fprint(f, " defined at %w", &ty->u.sym->src);
+        -:  553:		}
+    #####:  554:		break;
+        -:  555:	case VOID: case FLOAT: case INT: case UNSIGNED:
+        1:  556:		fprint(f, ty->u.sym->name);
+        1:  557:		break;
+        -:  558:	case POINTER:
+        -:  559:		// modified by liujian, 2011.10.31
+        -:  560:        // fprint(f, "pointer to %t", ty->type);
+    #####:  561:		fprint(f, "ptr->%t", ty->type);
+    #####:  562:		break;
+        -:  563:	case FUNCTION:
+        -:  564:		// modified by liujian, 2011.10.31
+        -:  565:        // fprint(f, "%t func", ty->type);
+    #####:  566:		fprint(f, "%t func", ty->type);
+    #####:  567:		if (ty->u.f.proto && ty->u.f.proto[0]) {
+    #####:  568:			int i;
+    #####:  569:			fprint(f, "(%t", ty->u.f.proto[0]);
+    #####:  570:			for (i = 1; ty->u.f.proto[i]; i++)
+    #####:  571:				if (ty->u.f.proto[i] == voidtype)
+    #####:  572:					fprint(f, ",...");
+        -:  573:				else
+    #####:  574:					fprint(f, ",%t", ty->u.f.proto[i]);
+    #####:  575:			fprint(f, ")");
+    #####:  576:		} else if (ty->u.f.proto && ty->u.f.proto[0] == 0)
+    #####:  577:			fprint(f, "(void)");
+        -:  578:
+    #####:  579:		break;
+        -:  580:	case ARRAY:
+    #####:  581:		if (ty->size > 0 && ty->type && ty->type->size > 0) {
+    #####:  582:			fprint(f, "array %d", ty->size/ty->type->size);
+    #####:  583:			while (ty->type && isarray(ty->type) && ty->type->type->size > 0) {
+    #####:  584:				ty = ty->type;
+    #####:  585:				fprint(f, ",%d", ty->size/ty->type->size);
+        -:  586:			}
+        -:  587:		} else
+    #####:  588:			fprint(f, "incomplete array");
+    #####:  589:		if (ty->type)
+    #####:  590:			fprint(f, " of %t", ty->type);
+    #####:  591:		break;
+    #####:  592:	default: assert(0);
+        -:  593:	}
+        -:  594:}
+        -:  595:
+        -:  596:/* printdecl - output a C declaration for symbol p of type ty */
+function printdecl called 0 returned 0% blocks executed 0%
+    #####:  597:void printdecl(Symbol p, Type ty) {
+    #####:  598:	switch (p->sclass) {
+        -:  599:	case AUTO:
+    #####:  600:		fprint(stderr, "%s;\n", typestring(ty, p->name));
+    #####:  601:		break;
+        -:  602:	case STATIC: case EXTERN:
+    #####:  603:		fprint(stderr, "%k %s;\n", p->sclass, typestring(ty, p->name));
+    #####:  604:		break;
+        -:  605:	case TYPEDEF: case ENUM:
+    #####:  606:		break;
+    #####:  607:	default: assert(0);
+        -:  608:	}
+        -:  609:}
+        -:  610:
+        -:  611:/* printproto - output a prototype declaration for function p */
+function printproto called 0 returned 0% blocks executed 0%
+    #####:  612:void printproto(Symbol p, Symbol callee[]) {
+    #####:  613:	if (p->type->u.f.proto)
+    #####:  614:		printdecl(p, p->type);
+        -:  615:	else {
+    #####:  616:		int i;
+    #####:  617:		List list = 0;
+    #####:  618:		if (callee[0] == 0)
+    #####:  619:			list = append(voidtype, list);
+        -:  620:		else
+    #####:  621:			for (i = 0; callee[i]; i++)
+    #####:  622:				list = append(callee[i]->type, list);
+    #####:  623:		printdecl(p, func(freturn(p->type), ltov(&list, PERM), 0));
+        -:  624:	}
+        -:  625:}
+        -:  626:
+        -:  627:/* prtype - print details of type ty on f with given indent */
+function prtype called 0 returned 0% blocks executed 0%
+    #####:  628:static void prtype(Type ty, FILE *f, int indent, unsigned mark) {
+    #####:  629:	switch (ty->op) {
+        -:  630:	default:
+    #####:  631:		fprint(f, "(%d %d %d [%p])", ty->op, ty->size, ty->align, ty->u.sym);
+    #####:  632:		break;
+        -:  633:	case FLOAT: case INT: case UNSIGNED: case VOID:
+    #####:  634:		fprint(f, "(%k %d %d [\"%s\"])", ty->op, ty->size, ty->align, ty->u.sym->name);
+    #####:  635:		break;
+        -:  636:	case CONST+VOLATILE: case CONST: case VOLATILE: case POINTER: case ARRAY:
+    #####:  637:		fprint(f, "(%k %d %d ", ty->op, ty->size, ty->align);
+    #####:  638:		prtype(ty->type, f, indent+1, mark);
+    #####:  639:		fprint(f, ")");
+    #####:  640:		break;
+        -:  641:	case STRUCT: case UNION:
+    #####:  642:		fprint(f, "(%k %d %d [\"%s\"]", ty->op, ty->size, ty->align, ty->u.sym->name);
+    #####:  643:		if (ty->x.marked != mark) {
+    #####:  644:			Field p;
+    #####:  645:			ty->x.marked = mark;
+    #####:  646:			for (p = ty->u.sym->u.s.flist; p; p = p->link) {
+    #####:  647:				fprint(f, "\n%I", indent+1);
+    #####:  648:				prtype(p->type, f, indent+1, mark);
+    #####:  649:				fprint(f, " %s@%d", p->name, p->offset);
+    #####:  650:				if (p->lsb)
+    #####:  651:					fprint(f, ":%d..%d",
+        -:  652:						fieldsize(p) + fieldright(p), fieldright(p));
+        -:  653:			}
+    #####:  654:			fprint(f, "\n%I", indent);
+        -:  655:		}
+    #####:  656:		fprint(f, ")");
+    #####:  657:		break;
+        -:  658:	case ENUM:
+    #####:  659:		fprint(f, "(%k %d %d [\"%s\"]", ty->op, ty->size, ty->align, ty->u.sym->name);
+    #####:  660:		if (ty->x.marked != mark) {
+    #####:  661:			int i;
+    #####:  662:			Symbol *p = ty->u.sym->u.idlist;
+    #####:  663:			ty->x.marked = mark;
+    #####:  664:			for (i = 0; p[i] != NULL; i++)
+    #####:  665:				fprint(f, "%I%s=%d\n", indent+1, p[i]->name, p[i]->u.value);
+        -:  666:		}
+    #####:  667:		fprint(f, ")");
+    #####:  668:		break;
+        -:  669:	case FUNCTION:
+    #####:  670:		fprint(f, "(%k %d %d ", ty->op, ty->size, ty->align);
+    #####:  671:		prtype(ty->type, f, indent+1, mark);
+    #####:  672:		if (ty->u.f.proto) {
+    #####:  673:			int i;
+    #####:  674:			fprint(f, "\n%I{", indent+1);
+    #####:  675:			for (i = 0; ty->u.f.proto[i]; i++) {
+    #####:  676:				if (i > 0)
+    #####:  677:					fprint(f, "%I", indent+2);
+    #####:  678:				prtype(ty->u.f.proto[i], f, indent+2, mark);
+    #####:  679:				fprint(f, "\n");
+        -:  680:			}
+    #####:  681:			fprint(f, "%I}", indent+1);
+        -:  682:		}
+    #####:  683:		fprint(f, ")");
+    #####:  684:		break;
+        -:  685:	}
+        -:  686:}
+        -:  687:
+        -:  688:/* printtype - print details of type ty on fd */
+function printtype called 0 returned 0% blocks executed 0%
+    #####:  689:void printtype(Type ty, int fd) {
+    #####:  690:	static unsigned mark;
+    #####:  691:	prtype(ty, fd == 1 ? stdout : stderr, 0, ++mark);
+    #####:  692:	fprint(fd == 1 ? stdout : stderr, "\n");
+        -:  693:}
+        -:  694:
+        -:  695:/* typestring - return ty as C declaration for str, which may be "" */
+function typestring called 5 returned 100% blocks executed 38%
+        8:  696:char *typestring(Type ty, char *str) {
+       11:  697:	for ( ; ty; ty = ty->type) {
+        8:  698:		Symbol p;
+        8:  699:		switch (ty->op) {
+        -:  700:		case CONST+VOLATILE: case CONST: case VOLATILE:
+        1:  701:			if (isptr(ty->type))
+    #####:  702:				str = stringf("%k %s", ty->op, str);
+        -:  703:			else
+        1:  704:				return stringf("%k %s", ty->op, typestring(ty->type, str));
+    #####:  705:			break;
+        -:  706:		case STRUCT: case UNION: case ENUM:
+    #####:  707:			assert(ty->u.sym);
+    #####:  708:			if ((p = findtype(ty)) != NULL)
+    #####:  709:				return *str ? stringf("%s %s", p->name, str) : p->name;
+    #####:  710:			if (*ty->u.sym->name >= '1' && *ty->u.sym->name <= '9')
+    #####:  711:				warning("unnamed %k in prototype\n", ty->op);
+    #####:  712:			if (*str)
+    #####:  713:				return stringf("%k %s %s", ty->op, ty->u.sym->name, str);
+        -:  714:			else
+    #####:  715:				return stringf("%k %s", ty->op, ty->u.sym->name);
+        -:  716:		case VOID: case FLOAT: case INT: case UNSIGNED:
+        4:  717:			return *str ? stringf("%s %s", ty->u.sym->name, str) : ty->u.sym->name;
+        -:  718:		case POINTER:
+        1:  719:			if (!ischar(ty->type) && (p = findtype(ty)) != NULL)
+    #####:  720:				return *str ? stringf("%s %s", p->name, str) : p->name;
+        1:  721:			str = stringf(isarray(ty->type) || isfunc(ty->type) ? "(*%s)" : "*%s", str);
+        1:  722:			break;
+        -:  723:		case FUNCTION:
+        1:  724:			if ((p = findtype(ty)) != NULL)
+    #####:  725:				return *str ? stringf("%s %s", p->name, str) : p->name;
+        1:  726:			if (ty->u.f.proto == 0)
+    #####:  727:				str = stringf("%s()", str);
+        1:  728:			else if (ty->u.f.proto[0]) {
+    #####:  729:				int i;
+    #####:  730:				str = stringf("%s(%s", str, typestring(ty->u.f.proto[0], ""));
+    #####:  731:				for (i = 1; ty->u.f.proto[i]; i++)
+    #####:  732:					if (ty->u.f.proto[i] == voidtype)
+    #####:  733:						str = stringf("%s, ...", str);
+        -:  734:					else
+    #####:  735:						str = stringf("%s, %s", str, typestring(ty->u.f.proto[i], ""));
+    #####:  736:				str = stringf("%s)", str);
+        -:  737:			} else
+        1:  738:				str = stringf("%s(void)", str);
+        1:  739:			break;
+        -:  740:		case ARRAY:
+        1:  741:			if ((p = findtype(ty)) != NULL)
+    #####:  742:				return *str ? stringf("%s %s", p->name, str) : p->name;
+        1:  743:			if (ty->type && ty->type->size > 0)
+        1:  744:				str = stringf("%s[%d]", str, ty->size/ty->type->size);
+        -:  745:			else
+    #####:  746:				str = stringf("%s[]", str);
+    #####:  747:			break;
+    #####:  748:		default: assert(0);
+        -:  749:		}
+        -:  750:	}
+    #####:  751:	assert(0); return 0;
+        -:  752:}
+        -:  753:

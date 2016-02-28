@@ -1,0 +1,31 @@
+int g();
+
+int f(a, b) char a, b; 
+{
+  return a + b;
+}
+
+int k(a, b) char a; float b; {
+  return a + b;
+}
+
+void foo(a, b, c) int *a, *b; {
+}
+
+// type of g, proto is NULL!!
+FUNCTION(oldstype=1, rty=INT, proto=NULL)
+
+// type of f, when parsing "(a, b)" is:
+FUNCTION(oldstyle=1, rty=INT, proto=NULL), params=(a:INT, b:INT)
+
+// type of f, when parsing old-style definition is following:
+// callee={CHAR, CHAR} caller=proto={INT, INT}
+FUNCTION(oldstyle=1, rty=INT, proto=(INT, INT))
+
+// type of k is following:
+// callee={CHAR, FLOAT} caller=proto={INT, DOUBLE}
+FUNCTION(oldstyle=1, rty=INT, params=(INT, DOUBLE))
+
+// type of foo is following:
+// callee={PTR->INT, PTR->INT, INT}, caller=proto={PTR->INT, PTR->INT, INT}
+FUNCTION(oldstyle=1, rty=VOID, params=(PTR->INT, PTR->INT, INT))

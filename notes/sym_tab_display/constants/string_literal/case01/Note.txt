@@ -1,0 +1,19 @@
+constant() function is called by 2 times:
+   1 times from primary();  // for storing string literal, in line1
+   1 times from listnodes();  // CNST tree for '7' in line4 
+
+Note:
+  string literal with type: (ARRAY (CHAR)), whose array type with field u.sym is NULL!
+        |--defined=1 for sym   // in constants() when call "primary()"
+        |--defined=0, generated =1 and defsymbol for u.c.loc    // when call "primary()"
+        |                |---defsymbol()  // !! generate: ".LCxx", since generated = 1
+        |--defglobal() for u.c.loc  // doconst(); defglobal(p->u.c.loc, LIT);
+        |    |--(*IR)->global()   // !! generate: "align xx"
+        |    |--defined=1
+        |--defstring() for u.c.v.p  // !! generate: ".byte xxx"
+           // doconst(); (*IR->defstring)(p->type->size, p->u.c.v.p);
+
+  integer constant with type: INT
+        |--defined=1 & defsymbol() for sym   // in constants() when apply "gen()"
+                         |--sym.x.name <- sym.name (??? what's the underlying meaning)
+ 

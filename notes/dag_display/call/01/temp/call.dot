@@ -1,0 +1,28 @@
+
+digraph sematic_dag  {
+    size="6,6";
+    node [color=lightblue2, style=filled];
+    v1 [label="CALLI int"];
+    v2 [label="RIGHT pointer to int function(int,int)"];
+    v1 -> v2
+
+    v3 [label="ARGI int"];
+    v4 [label="ADDRGP pointer to int function(int,int)"];
+    v2 -> v3
+    v2 -> v4
+
+    v5 [label="INDIRI int"];
+    v6 [label="ARGI int"];
+    v3 -> v5
+    v3 -> v6
+
+    v7 [label="ADDRLP pointer to int"];
+    v5 -> v7
+
+    v8 [label="INDIRI int"];
+    v6 -> v8
+
+    v9 [label="ADDRLP pointer to int"];
+    v8 -> v9
+
+}

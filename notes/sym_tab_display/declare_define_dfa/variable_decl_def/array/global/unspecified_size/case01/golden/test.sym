@@ -1,0 +1,34 @@
+--------------------------- external symbols -----------------------------------
+
+------------------------- global symbols --------------------------------
+   d: [extern][defined=0][ref=0.0] | extern S d[]; | incomplete array of incomplete struct S defined at test.c:2
+   c: [defined=1][ref=0.0] | SS c[1]; | array 1 of struct SS
+   a: [defined=1][ref=0.0] | S a[]; | incomplete array of incomplete struct S defined at test.c:2
+   b: [defined=1][ref=0.0] | int b[1]; | array 1 of int
+   SS: [typedef][defined=0][ref=0.0] | SS SS; | struct SS
+   S: [typedef][defined=0][ref=0.0] | S S; | incomplete struct S defined at test.c:2
+
+--------------------------- constant symbols -----------------------------------
+
+--------------------------- types symbols --------------------------------------
+   SS: [defined=1][ref=0.0] |  | struct SS
+   S: [defined=0][ref=0.0] |  | incomplete struct S defined at test.c:2
+   T*: [defined=0][ref=0.0] | 
+   void: [defined=0][ref=0.0] |  | void
+   unsigned long long: [defined=0][ref=0.0] |  | unsigned long long
+   unsigned int: [defined=0][ref=0.0] |  | unsigned int
+   unsigned short: [defined=0][ref=0.0] |  | unsigned short
+   unsigned long: [defined=0][ref=0.0] |  | unsigned long
+   unsigned char: [defined=0][ref=0.0] |  | unsigned char
+   signed char: [defined=0][ref=0.0] |  | signed char
+   short: [defined=0][ref=0.0] |  | short
+   long long int: [defined=0][ref=0.0] |  | long long int
+   long int: [defined=0][ref=0.0] |  | long int
+   long double: [defined=0][addressed][ref=0.0] |  | long double
+   int: [defined=0][ref=0.0] |  | int
+   float: [defined=0][addressed][ref=0.0] |  | float
+   double: [defined=0][addressed][ref=0.0] |  | double
+   char: [defined=0][ref=0.0] |  | char
+
+--------------------------- labels symbols -------------------------------------
+-------------------------------------------------------------------------------

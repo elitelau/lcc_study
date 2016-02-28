@@ -1,0 +1,26 @@
+1. decl()                               // parse int (*f)(int, int)
+     |-- specifier()                    // parse int 
+     |-- dclr()
+          |--dclr1()
+               |-- <abstract function>  // parse int ( , so match '('
+               |           |   // "abstract function" merely is a name with meaninglessness
+               |           |--dclr1()         // parse int (*
+               |                |--dclr1      // parse int (*f
+               |                                             ~ "f" as ID  
+               | 
+               |                        // before concreate function, match enclosed ')'
+               |                        // so, parse int (*f)                       
+               |-- <concreate function>
+                           |
+                           |--parameters()
+                                  |--dclr()
+                                  |   |--dclr1()  // parse int (*f) (int,
+                                  |
+                                  |--dclr()
+                                      |--dclr1()  // parse int (*f) (int, int 
+                                                  // note: the last ')' is not parsed!!
+
+    totally, dclr1() is called by 5 times that is also verified by code coverage applying.
+
+    condition "level > PARAM" has never reached!
+

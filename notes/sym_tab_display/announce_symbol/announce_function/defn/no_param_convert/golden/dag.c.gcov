@@ -1,0 +1,766 @@
+        -:    0:Source:src/dag.c
+        -:    0:Graph:lcc/dag.gcno
+        -:    0:Data:lcc/dag.gcda
+        -:    0:Runs:1
+        -:    0:Programs:1
+        -:    1:#include "c.h"
+        -:    2:
+        -:    3:static char rcsid[] = "$Id: dag.nw,v 2.30 1998/09/21 21:24:47 drh Exp $";
+        -:    4:
+        -:    5:#define iscall(op) (generic(op) == CALL \
+        -:    6:	|| IR->mulops_calls \
+        -:    7:	&& (generic(op)==DIV||generic(op)==MOD||generic(op)==MUL) \
+        -:    8:	&& ( optype(op)==U  || optype(op)==I))
+        -:    9:static Node forest;
+        -:   10:static struct dag {
+        -:   11:	struct node node;
+        -:   12:	struct dag *hlink;
+        -:   13:} *buckets[16];
+        -:   14:int nodecount;
+        -:   15:static Tree firstarg;
+        -:   16:int assignargs = 1;
+        -:   17:int prunetemps = -1;
+        -:   18:static Node *tail;
+        -:   19:
+        -:   20:static int depth = 0;
+        -:   21:static Node replace(Node);
+        -:   22:static Node prune(Node);
+        -:   23:static Node asgnnode(Symbol, Node);
+        -:   24:static struct dag *dagnode(int, Node, Node, Symbol);
+        -:   25:static Symbol equated(Symbol);
+        -:   26:static void fixup(Node);
+        -:   27:static void labelnode(int);
+        -:   28:static void list(Node);
+        -:   29:static void kill(Symbol);
+        -:   30:static Node node(int, Node, Node, Symbol);
+        -:   31:static void printdag1(Node, int, int);
+        -:   32:static void printnode(Node, int, int);
+        -:   33:static void reset(void);
+        -:   34:static Node tmpnode(Node);
+        -:   35:static void typestab(Symbol, void *);
+        -:   36:static Node undag(Node);
+        -:   37:static Node visit(Node, int);
+        -:   38:static void unlist(void);
+function walk called 6 returned 100% blocks executed 100%
+        6:   39:void walk(Tree tp, int tlab, int flab) {
+        6:   40:	listnodes(tp, tlab, flab);
+        6:   41:	if (forest) {
+        1:   42:		Node list = forest->link;
+        1:   43:		forest->link = NULL;
+        1:   44:		if (!IR->wants_dag)
+        1:   45:			list = undag(list);
+        1:   46:		code(Gen)->u.forest = list;
+        1:   47:		forest = NULL;
+        -:   48:	}
+        6:   49:	reset();
+        6:   50:	deallocate(STMT);
+        -:   51:}
+        -:   52:
+function node called 5 returned 100% blocks executed 82%
+        5:   53:static Node node(int op, Node l, Node r, Symbol sym) {
+        5:   54:	int i;
+        5:   55:	struct dag *p;
+        -:   56:
+        5:   57:	i = (opindex(op)^((unsigned long)sym>>2))&(NELEMS(buckets)-1);
+        6:   58:	for (p = buckets[i]; p; p = p->hlink)
+        1:   59:		if (p->node.op      == op && p->node.syms[0] == sym
+        -:   60:		&&  p->node.kids[0] == l  && p->node.kids[1] == r)
+    #####:   61:			return &p->node;
+        5:   62:	p = dagnode(op, l, r, sym);
+        5:   63:	p->hlink = buckets[i];
+        5:   64:	buckets[i] = p;
+        5:   65:	++nodecount;
+        5:   66:	return &p->node;
+        -:   67:}
+function dagnode called 9 returned 100% blocks executed 100%
+        9:   68:static struct dag *dagnode(int op, Node l, Node r, Symbol sym) {
+        9:   69:	struct dag *p;
+        -:   70:
+        9:   71:	NEW0(p, FUNC);
+        9:   72:	p->node.op = op;
+        9:   73:	if ((p->node.kids[0] = l) != NULL)
+        5:   74:		++l->count;
+        9:   75:	if ((p->node.kids[1] = r) != NULL)
+        1:   76:		++r->count;
+        9:   77:	p->node.syms[0] = sym;
+        9:   78:	return p;
+        -:   79:}
+function newnode called 4 returned 100% blocks executed 100%
+        4:   80:Node newnode(int op, Node l, Node r, Symbol sym) {
+        4:   81:	return &dagnode(op, l, r, sym)->node;
+        -:   82:}
+function kill called 0 returned 0% blocks executed 0%
+    #####:   83:static void kill(Symbol p) {
+    #####:   84:	int i;
+    #####:   85:	struct dag **q;
+        -:   86:
+    #####:   87:	for (i = 0; i < NELEMS(buckets); i++)
+    #####:   88:		for (q = &buckets[i]; *q; )
+    #####:   89:			if (generic((*q)->node.op) == INDIR &&
+        -:   90:			    (!isaddrop((*q)->node.kids[0]->op)
+        -:   91:			     || (*q)->node.kids[0]->syms[0] == p)) {
+    #####:   92:				*q = (*q)->hlink;
+    #####:   93:				--nodecount;
+        -:   94:			} else
+    #####:   95:				q = &(*q)->hlink;
+        -:   96:}
+function reset called 6 returned 100% blocks executed 100%
+        6:   97:static void reset(void) {
+        6:   98:	if (nodecount > 0)
+        1:   99:		memset(buckets, 0, sizeof buckets);
+        6:  100:	nodecount = 0;
+        -:  101:}
+function listnodes called 11 returned 100% blocks executed 13%
+       11:  102:Node listnodes(Tree tp, int tlab, int flab) {
+       11:  103:	Node p = NULL, l, r;
+       11:  104:	int op;
+        -:  105:
+       11:  106:	assert(tlab || flab || tlab == 0 && flab == 0);
+       11:  107:	if (tp == NULL)
+        5:  108:		return NULL;
+        6:  109:	if (tp->node)
+    #####:  110:		return tp->node;
+        6:  111:	op = tp->op + sizeop(tp->type->size);
+        6:  112:	switch (generic(tp->op)) {
+    #####:  113:	case AND:   { if (depth++ == 0) reset();
+    #####:  114:		      if (flab) {
+    #####:  115:		      	listnodes(tp->kids[0], 0, flab);
+    #####:  116:		      	listnodes(tp->kids[1], 0, flab);
+        -:  117:		      } else {
+    #####:  118:		      	listnodes(tp->kids[0], 0, flab = genlabel(1));
+    #####:  119:		      	listnodes(tp->kids[1], tlab, 0);
+    #####:  120:		      	labelnode(flab);
+        -:  121:		      }
+    #####:  122:		      depth--; } break;
+    #####:  123:	case OR:    { if (depth++ == 0)
+    #####:  124:		      	reset();
+    #####:  125:		      if (tlab) {
+    #####:  126:		      	listnodes(tp->kids[0], tlab, 0);
+    #####:  127:		      	listnodes(tp->kids[1], tlab, 0);
+        -:  128:		      } else {
+    #####:  129:		      	tlab = genlabel(1);
+    #####:  130:		      	listnodes(tp->kids[0], tlab, 0);
+    #####:  131:		      	listnodes(tp->kids[1], 0, flab);
+    #####:  132:		      	labelnode(tlab);
+        -:  133:		      }
+    #####:  134:		      depth--;
+    #####:  135: } break;
+    #####:  136:	case NOT:   { return listnodes(tp->kids[0], flab, tlab); }
+    #####:  137:	case COND:  { Tree q = tp->kids[1];
+    #####:  138:		      assert(tlab == 0 && flab == 0);
+    #####:  139:		      if (tp->u.sym)
+    #####:  140:		      	addlocal(tp->u.sym);
+    #####:  141:		      flab = genlabel(2);
+    #####:  142:		      listnodes(tp->kids[0], 0, flab);
+    #####:  143:		      assert(q && q->op == RIGHT);
+    #####:  144:		      reset();
+    #####:  145:		      listnodes(q->kids[0], 0, 0);
+    #####:  146:		      if (forest->op == LABEL+V) {
+    #####:  147:		      	equatelab(forest->syms[0], findlabel(flab + 1));
+    #####:  148:		      	unlist();
+        -:  149:		      }
+    #####:  150:		      list(jump(flab + 1));
+    #####:  151:		      labelnode(flab);
+    #####:  152:		      listnodes(q->kids[1], 0, 0);
+    #####:  153:		      if (forest->op == LABEL+V) {
+    #####:  154:		      	equatelab(forest->syms[0], findlabel(flab + 1));
+    #####:  155:		      	unlist();
+        -:  156:		      }
+    #####:  157:		      labelnode(flab + 1);
+        -:  158:
+    #####:  159:		      if (tp->u.sym)
+    #####:  160:		      	p = listnodes(idtree(tp->u.sym), 0, 0); } break;
+    #####:  161:	case CNST:  { Type ty = unqual(tp->type);
+    #####:  162:		      assert(ty->u.sym);
+    #####:  163:		      if (tlab || flab) {
+    #####:  164:		      	assert(ty == inttype);
+    #####:  165:		      	if (tlab && tp->u.v.i != 0)
+    #####:  166:		      		list(jump(tlab));
+    #####:  167:		      	else if (flab && tp->u.v.i == 0)
+    #####:  168:		      		list(jump(flab));
+        -:  169:		      }
+    #####:  170:		      else if (ty->u.sym->addressed)
+    #####:  171:		      	p = listnodes(cvtconst(tp), 0, 0);
+        -:  172:		      else
+    #####:  173:		      	p = node(op, NULL, NULL, constant(ty, tp->u.v)); } break;
+    #####:  174:	case RIGHT: { if (   tp->kids[0] && tp->kids[1]
+        -:  175:			  &&  generic(tp->kids[1]->op) == ASGN
+        -:  176:			  && (generic(tp->kids[0]->op) == INDIR
+        -:  177:			  && tp->kids[0]->kids[0] == tp->kids[1]->kids[0]
+        -:  178:			  || (tp->kids[0]->op == FIELD
+        -:  179:			  &&  tp->kids[0] == tp->kids[1]->kids[0]))) {
+    #####:  180:		      	assert(tlab == 0 && flab == 0);
+    #####:  181:			if (generic(tp->kids[0]->op) == INDIR) {
+    #####:  182:				p = listnodes(tp->kids[0], 0, 0);
+    #####:  183:				list(p);
+    #####:  184:				listnodes(tp->kids[1], 0, 0);
+        -:  185:			}
+        -:  186:			else {
+    #####:  187:				assert(generic(tp->kids[0]->kids[0]->op) == INDIR);
+    #####:  188:				list(listnodes(tp->kids[0]->kids[0], 0, 0));
+    #####:  189:				p = listnodes(tp->kids[0], 0, 0);
+    #####:  190:				listnodes(tp->kids[1], 0, 0);
+        -:  191:			}
+    #####:  192:		      } else if (tp->kids[1]) {
+    #####:  193:		      	listnodes(tp->kids[0], 0, 0);
+    #####:  194:		      	p = listnodes(tp->kids[1], tlab, flab);
+        -:  195:		      } else
+    #####:  196:		      	p = listnodes(tp->kids[0], tlab, flab); } break;
+    #####:  197:	case JUMP:  { assert(tlab == 0 && flab == 0);
+    #####:  198:		      assert(tp->u.sym == 0);
+    #####:  199:		      assert(tp->kids[0]);
+    #####:  200:		      l = listnodes(tp->kids[0], 0, 0);
+    #####:  201:		      list(newnode(JUMP+V, l, NULL, NULL));
+    #####:  202:		      reset(); } break;
+    #####:  203:	case CALL:  { Tree save = firstarg;
+    #####:  204:		      firstarg = NULL;
+    #####:  205:		      assert(tlab == 0 && flab == 0);
+    #####:  206:		      if (tp->op == CALL+B && !IR->wants_callb) {
+    #####:  207:		      	Tree arg0 = tree(ARG+P, tp->kids[1]->type,
+    #####:  208:				tp->kids[1], NULL);
+    #####:  209:			if (IR->left_to_right)
+    #####:  210:				firstarg = arg0;
+    #####:  211:			l = listnodes(tp->kids[0], 0, 0);
+    #####:  212:			if (!IR->left_to_right || firstarg) {
+    #####:  213:				firstarg = NULL;
+    #####:  214:				listnodes(arg0, 0, 0);
+        -:  215:			}
+    #####:  216:		      	p = newnode(CALL+V, l, NULL, NULL);
+        -:  217:		      } else {
+    #####:  218:		      	l = listnodes(tp->kids[0], 0, 0);
+    #####:  219:		      	r = listnodes(tp->kids[1], 0, 0);
+    #####:  220:		      	p = newnode(tp->op == CALL+B ? tp->op : op, l, r, NULL);
+        -:  221:		      }
+    #####:  222:		      NEW0(p->syms[0], FUNC);
+    #####:  223:		      assert(isptr(tp->kids[0]->type));
+    #####:  224:		      assert(isfunc(tp->kids[0]->type->type));
+    #####:  225:		      p->syms[0]->type = tp->kids[0]->type->type;
+    #####:  226:		      list(p);
+    #####:  227:		      reset();
+    #####:  228:		      cfunc->u.f.ncalls++;
+    #####:  229:		      firstarg = save;
+    #####:  230: } break;
+    #####:  231:	case ARG:   { assert(tlab == 0 && flab == 0);
+    #####:  232:		      if (IR->left_to_right)
+    #####:  233:		      	listnodes(tp->kids[1], 0, 0);
+    #####:  234:		      if (firstarg) {
+    #####:  235:		      	Tree arg = firstarg;
+    #####:  236:		      	firstarg = NULL;
+    #####:  237:		      	listnodes(arg, 0, 0);
+        -:  238:		      }
+    #####:  239:		      l = listnodes(tp->kids[0], 0, 0);
+    #####:  240:		      list(newnode(tp->op == ARG+B ? tp->op : op, l, NULL, NULL));
+    #####:  241:		      forest->syms[0] = intconst(tp->type->size);
+    #####:  242:		      forest->syms[1] = intconst(tp->type->align);
+    #####:  243:		      if (!IR->left_to_right)
+    #####:  244:		      	listnodes(tp->kids[1], 0, 0); } break;
+        -:  245:	case EQ:  case NE: case GT: case GE: case LE:
+    #####:  246:	case LT:    { assert(tp->u.sym == 0);
+    #####:  247:		      assert(errcnt || tlab || flab);
+    #####:  248:		      l = listnodes(tp->kids[0], 0, 0);
+    #####:  249:		      r = listnodes(tp->kids[1], 0, 0);
+    #####:  250:		      assert(errcnt || opkind(l->op) == opkind(r->op));
+    #####:  251:		      assert(errcnt || optype(op) == optype(l->op));
+    #####:  252:		      if (tlab)
+    #####:  253:		      	assert(flab == 0),
+        -:  254:		      	list(newnode(generic(tp->op) + opkind(l->op), l, r, findlabel(tlab)));
+    #####:  255:		      else if (flab) {
+    #####:  256:		      	switch (generic(tp->op)) {
+    #####:  257:		      	case EQ: op = NE; break;
+    #####:  258:		      	case NE: op = EQ; break;
+    #####:  259:		      	case GT: op = LE; break;
+    #####:  260:		      	case LT: op = GE; break;
+    #####:  261:		      	case GE: op = LT; break;
+    #####:  262:		      	case LE: op = GT; break;
+    #####:  263:		      	default: assert(0);
+        -:  264:		      	}
+    #####:  265:		      	list(newnode(op + opkind(l->op), l, r, findlabel(flab)));
+        -:  266:		      }
+    #####:  267:		      if (forest && forest->syms[0])
+    #####:  268:		      	forest->syms[0]->ref++; } break;
+    #####:  269:	case ASGN:  { assert(tlab == 0 && flab == 0);
+    #####:  270:		      if (tp->kids[0]->op == FIELD) {
+    #####:  271:		      	Tree  x = tp->kids[0]->kids[0];
+    #####:  272:			Field f = tp->kids[0]->u.field;
+    #####:  273:			assert(generic(x->op) == INDIR);
+    #####:  274:			reset();
+    #####:  275:			l = listnodes(lvalue(x), 0, 0);
+    #####:  276:			if (fieldsize(f) < 8*f->type->size) {
+    #####:  277:				unsigned int fmask = fieldmask(f);
+    #####:  278:				unsigned int  mask = fmask<<fieldright(f);
+    #####:  279:				Tree q = tp->kids[1];
+    #####:  280:				if (q->op == CNST+I && q->u.v.i == 0
+        -:  281:				||  q->op == CNST+U && q->u.v.u == 0)
+    #####:  282:					q = bittree(BAND, x, cnsttree(unsignedtype, (unsigned long)~mask));
+    #####:  283:				else if (q->op == CNST+I && (q->u.v.i&fmask) == fmask
+        -:  284:				||       q->op == CNST+U && (q->u.v.u&fmask) == fmask)
+    #####:  285:					q = bittree(BOR, x, cnsttree(unsignedtype, (unsigned long)mask));
+        -:  286:				else {
+    #####:  287:					listnodes(q, 0, 0);
+    #####:  288:					q = bittree(BOR,
+        -:  289:						bittree(BAND, rvalue(lvalue(x)),
+        -:  290:							cnsttree(unsignedtype, (unsigned long)~mask)),
+        -:  291:						bittree(BAND, shtree(LSH, cast(q, unsignedtype),
+        -:  292:							cnsttree(unsignedtype, (unsigned long)fieldright(f))),
+        -:  293:							cnsttree(unsignedtype, (unsigned long)mask)));
+        -:  294:				}
+    #####:  295:				r = listnodes(q, 0, 0);
+    #####:  296:				op = ASGN + ttob(q->type);
+        -:  297:			} else {
+    #####:  298:				r = listnodes(tp->kids[1], 0, 0);
+    #####:  299:				op = ASGN + ttob(tp->kids[1]->type);
+        -:  300:			}
+        -:  301:		      } else {
+    #####:  302:		      	l = listnodes(tp->kids[0], 0, 0);
+    #####:  303:		      	r = listnodes(tp->kids[1], 0, 0);
+        -:  304:		      }
+    #####:  305:		      list(newnode(tp->op == ASGN+B ? tp->op : op, l, r, NULL));
+    #####:  306:		      forest->syms[0] = intconst(tp->kids[1]->type->size);
+    #####:  307:		      forest->syms[1] = intconst(tp->kids[1]->type->align);
+    #####:  308:		      if (isaddrop(tp->kids[0]->op)
+        -:  309:		      && !tp->kids[0]->u.sym->computed)
+    #####:  310:		      	kill(tp->kids[0]->u.sym);
+        -:  311:		      else
+    #####:  312:		      	reset();
+    #####:  313:		      p = listnodes(tp->kids[1], 0, 0); } break;
+        -:  314:	case BOR: case BAND: case BXOR:
+        -:  315:	case ADD: case SUB:  case RSH:
+        1:  316:	case LSH:   { assert(tlab == 0 && flab == 0);
+        1:  317:		      l = listnodes(tp->kids[0], 0, 0);
+        1:  318:		      r = listnodes(tp->kids[1], 0, 0);
+        1:  319:		      p = node(op, l, r, NULL); } break;
+        -:  320:	case DIV: case MUL:
+    #####:  321:	case MOD:   { assert(tlab == 0 && flab == 0);
+    #####:  322:		      l = listnodes(tp->kids[0], 0, 0);
+    #####:  323:		      r = listnodes(tp->kids[1], 0, 0);
+    #####:  324:		      p = node(op, l, r, NULL);
+    #####:  325:		      if (IR->mulops_calls && isint(tp->type)) {
+    #####:  326:		      	list(p);
+    #####:  327:		      	cfunc->u.f.ncalls++;
+    #####:  328:		      } } break;
+        1:  329:	case RET:   { assert(tlab == 0 && flab == 0);
+        1:  330:		      l = listnodes(tp->kids[0], 0, 0);
+        1:  331:		      list(newnode(op, l, NULL, NULL)); } break;
+        -:  332:	case CVF: case CVI: case CVP:
+    #####:  333:	case CVU:   { assert(tlab == 0 && flab == 0);
+    #####:  334:		      assert(optype(tp->kids[0]->op) != optype(tp->op) || tp->kids[0]->type->size != tp->type->size);
+    #####:  335:		      l = listnodes(tp->kids[0], 0, 0);
+    #####:  336:		      p = node(op, l, NULL, intconst(tp->kids[0]->type->size));
+    #####:  337: } break;
+        -:  338:	case BCOM:
+    #####:  339:	case NEG:   { assert(tlab == 0 && flab == 0);
+    #####:  340:		      l = listnodes(tp->kids[0], 0, 0);
+    #####:  341:		      p = node(op, l, NULL, NULL); } break;
+        2:  342:	case INDIR: { Type ty = tp->kids[0]->type;
+        2:  343:		      assert(tlab == 0 && flab == 0);
+        2:  344:		      l = listnodes(tp->kids[0], 0, 0);
+        2:  345:		      if (isptr(ty))
+        2:  346:		      	ty = unqual(ty)->type;
+        2:  347:		      if (isvolatile(ty)
+        -:  348:		      || (isstruct(ty) && unqual(ty)->u.sym->u.s.vfields))
+    #####:  349:		      	p = newnode(tp->op == INDIR+B ? tp->op : op, l, NULL, NULL);
+        -:  350:		      else
+        2:  351:		      	p = node(tp->op == INDIR+B ? tp->op : op, l, NULL, NULL); } break;
+    #####:  352:	case FIELD: { Tree q = tp->kids[0];
+    #####:  353:		      if (tp->type == inttype) {
+    #####:  354:		      	long n = fieldleft(tp->u.field);
+    #####:  355:		      	q = shtree(RSH,
+        -:  356:		      		shtree(LSH, q, cnsttree(inttype, n)),
+        -:  357:		      		cnsttree(inttype, n + fieldright(tp->u.field)));
+    #####:  358:		      } else if (fieldsize(tp->u.field) < 8*tp->u.field->type->size)
+    #####:  359:		      	q = bittree(BAND,
+        -:  360:		      		shtree(RSH, q, cnsttree(inttype, (long)fieldright(tp->u.field))),
+        -:  361:		      		cnsttree(unsignedtype, (unsigned long)fieldmask(tp->u.field)));
+    #####:  362:		      assert(tlab == 0 && flab == 0);
+    #####:  363:		      p = listnodes(q, 0, 0); } break;
+        -:  364:	case ADDRG:
+        2:  365:	case ADDRF: { assert(tlab == 0 && flab == 0);
+        2:  366:		      p = node(tp->op + sizeop(voidptype->size), NULL, NULL, tp->u.sym);
+        2:  367: } break;
+    #####:  368:	case ADDRL: { assert(tlab == 0 && flab == 0);
+    #####:  369:		      if (tp->u.sym->temporary)
+    #####:  370:		      	addlocal(tp->u.sym);
+    #####:  371:		      p = node(tp->op + sizeop(voidptype->size), NULL, NULL, tp->u.sym); } break;
+    #####:  372:	default:assert(0);
+        -:  373:	}
+        6:  374:	tp->node = p;
+        6:  375:	return p;
+        -:  376:}
+function list called 1 returned 100% blocks executed 86%
+        1:  377:static void list(Node p) {
+        1:  378:	if (p && p->link == NULL) {
+        1:  379:		if (forest) {
+    #####:  380:			p->link = forest->link;
+    #####:  381:			forest->link = p;
+        -:  382:		} else
+        1:  383:			p->link = p;
+        1:  384:		forest = p;
+        -:  385:	}
+        -:  386:}
+function labelnode called 0 returned 0% blocks executed 0%
+    #####:  387:static void labelnode(int lab) {
+    #####:  388:	assert(lab);
+    #####:  389:	if (forest && forest->op == LABEL+V)
+    #####:  390:		equatelab(findlabel(lab), forest->syms[0]);
+        -:  391:	else
+    #####:  392:		list(newnode(LABEL+V, NULL, NULL, findlabel(lab)));
+    #####:  393:	reset();
+        -:  394:}
+function unlist called 0 returned 0% blocks executed 0%
+    #####:  395:static void unlist(void) {
+    #####:  396:	Node p;
+        -:  397:
+    #####:  398:	assert(forest);
+    #####:  399:	assert(forest != forest->link);
+    #####:  400:	p = forest->link;
+    #####:  401:	while (p->link != forest)
+    #####:  402:		p = p->link;
+    #####:  403:	p->link = forest->link;
+    #####:  404:	forest = p;
+        -:  405:}
+function cvtconst called 0 returned 0% blocks executed 0%
+    #####:  406:Tree cvtconst(Tree p) {
+    #####:  407:	Symbol q = constant(p->type, p->u.v);
+    #####:  408:	Tree e;
+        -:  409:
+    #####:  410:	if (q->u.c.loc == NULL)
+    #####:  411:		q->u.c.loc = genident(STATIC, p->type, GLOBAL);
+    #####:  412:	if (isarray(p->type)) {
+    #####:  413:		e = simplify(ADDRG, atop(p->type), NULL, NULL);
+    #####:  414:		e->u.sym = q->u.c.loc;
+        -:  415:	} else
+    #####:  416:		e = idtree(q->u.c.loc);
+    #####:  417:	return e;
+        -:  418:}
+function gencode called 1 returned 100% blocks executed 51%
+        1:  419:void gencode(Symbol caller[], Symbol callee[]) {
+        1:  420:	Code cp;
+        1:  421:	Coordinate save;
+        -:  422:
+        1:  423:	if (prunetemps == -1)
+        1:  424:		prunetemps = !IR->wants_dag;
+        1:  425:	save = src;
+        1:  426:	if (assignargs) {
+        1:  427:		int i;
+        1:  428:		Symbol p, q;
+        1:  429:		cp = codehead.next->next;
+        1:  430:		codelist = codehead.next;
+        3:  431:		for (i = 0; (p = callee[i]) != NULL
+        -:  432:		         && (q = caller[i]) != NULL; i++)
+        2:  433:			if (p->sclass != q->sclass || p->type != q->type)
+    #####:  434:				walk(asgn(p, idtree(q)), 0, 0);
+        1:  435:		codelist->next = cp;
+        1:  436:		cp->prev = codelist;
+        -:  437:	}
+        1:  438:	if (glevel && IR->stabsym) {
+    #####:  439:		int i;
+    #####:  440:		Symbol p, q;
+    #####:  441:		for (i = 0; (p = callee[i]) != NULL
+        -:  442:		         && (q = caller[i]) != NULL; i++) {
+    #####:  443:			(*IR->stabsym)(p);
+    #####:  444:			if (p->sclass != q->sclass || p->type != q->type)
+    #####:  445:				(*IR->stabsym)(q);
+        -:  446:		}
+    #####:  447:		swtoseg(CODE);
+        -:  448:	}
+        1:  449:	cp = codehead.next;
+       13:  450:	for ( ; errcnt <= 0 && cp; cp = cp->next)
+        6:  451:		switch (cp->kind) {
+    #####:  452:		case Address:  (*IR->address)(cp->u.addr.sym, cp->u.addr.base,
+    #####:  453:			       	cp->u.addr.offset); break;
+        -:  454:		case Blockbeg: {
+        1:  455:			       	Symbol *p = cp->u.block.locals;
+        1:  456:			       	(*IR->blockbeg)(&cp->u.block.x);
+        1:  457:			       	for ( ; *p; p++)
+    #####:  458:			       		if ((*p)->ref != 0.0)
+    #####:  459:			       			(*IR->local)(*p);
+    #####:  460:			       		else if (glevel) (*IR->local)(*p);
+        -:  461:			       }
+        1:  462: break;
+        1:  463:		case Blockend: (*IR->blockend)(&cp->u.begin->u.block.x); break;
+        2:  464:		case Defpoint: src = cp->u.point.src; break;
+        -:  465:		case Gen: case Jump:
+        2:  466:		case Label:    if (prunetemps)
+        2:  467:			       	cp->u.forest = prune(cp->u.forest);
+        2:  468:			       fixup(cp->u.forest);
+        2:  469:			       cp->u.forest = (*IR->gen)(cp->u.forest); break;
+    #####:  470:		case Local:    (*IR->local)(cp->u.var); break;
+    #####:  471:		case Switch:   break;
+    #####:  472:		default: assert(0);
+        -:  473:		}
+        1:  474:	src = save;
+        -:  475:}
+function fixup called 2 returned 100% blocks executed 54%
+        4:  476:static void fixup(Node p) {
+        6:  477:	for ( ; p; p = p->link)
+        2:  478:		switch (generic(p->op)) {
+        -:  479:		case JUMP:
+    #####:  480:			if (specific(p->kids[0]->op) == ADDRG+P)
+    #####:  481:				p->kids[0]->syms[0] =
+        -:  482:					equated(p->kids[0]->syms[0]);
+    #####:  483:			break;
+        1:  484:		case LABEL: assert(p->syms[0] == equated(p->syms[0])); break;
+        -:  485:		case EQ: case GE: case GT: case LE: case LT: case NE:
+    #####:  486:			assert(p->syms[0]);
+    #####:  487:			p->syms[0] = equated(p->syms[0]);
+        -:  488:		}
+        -:  489:}
+function equated called 1 returned 100% blocks executed 50%
+        1:  490:static Symbol equated(Symbol p) {
+        1:  491:	{ Symbol q; for (q = p->u.l.equatedto; q; q = q->u.l.equatedto) assert(p != q); }
+        1:  492:	while (p->u.l.equatedto)
+    #####:  493:		p = p->u.l.equatedto;
+        1:  494:	return p;
+        -:  495:}
+function emitcode called 1 returned 100% blocks executed 26%
+        1:  496:void emitcode(void) {
+        1:  497:	Code cp;
+        1:  498:	Coordinate save;
+        -:  499:
+        1:  500:	save = src;
+        1:  501:	cp = codehead.next;
+       13:  502:	for ( ; errcnt <= 0 && cp; cp = cp->next)
+        6:  503:		switch (cp->kind) {
+        1:  504:		case Address: break;
+        1:  505:		case Blockbeg: if (glevel && IR->stabblock) {
+    #####:  506:			       	(*IR->stabblock)('{',  cp->u.block.level - LOCAL, cp->u.block.locals);
+    #####:  507:			       	swtoseg(CODE);
+        -:  508:			       }
+    #####:  509: break;
+        1:  510:		case Blockend: if (glevel && IR->stabblock) {
+    #####:  511:			       	Code bp = cp->u.begin;
+    #####:  512:			       	foreach(bp->u.block.identifiers, bp->u.block.level, typestab, NULL);
+    #####:  513:			       	foreach(bp->u.block.types,       bp->u.block.level, typestab, NULL);
+    #####:  514:			       	(*IR->stabblock)('}', bp->u.block.level - LOCAL, bp->u.block.locals);
+    #####:  515:			       	swtoseg(CODE);
+        -:  516:			       }
+    #####:  517: break;
+        2:  518:		case Defpoint: src = cp->u.point.src;
+        2:  519:			       if (glevel > 0 && IR->stabline) {
+    #####:  520:			       	(*IR->stabline)(&cp->u.point.src); swtoseg(CODE); } break;
+        -:  521:		case Gen: case Jump:
+        2:  522:		case Label:    if (cp->u.forest)
+        2:  523:			       	(*IR->emit)(cp->u.forest); break;
+    #####:  524:		case Local:    if (glevel && IR->stabsym) {
+    #####:  525:			       	(*IR->stabsym)(cp->u.var);
+    #####:  526:			       	swtoseg(CODE);
+    #####:  527:			       } break;
+    #####:  528:		case Switch:   {	int i;
+    #####:  529:			       	defglobal(cp->u.swtch.table, LIT);
+    #####:  530:			       	(*IR->defaddress)(equated(cp->u.swtch.labels[0]));
+    #####:  531:			       	for (i = 1; i < cp->u.swtch.size; i++) {
+    #####:  532:			       		long k = cp->u.swtch.values[i-1];
+    #####:  533:			       		while (++k < cp->u.swtch.values[i])
+    #####:  534:			       			assert(k < LONG_MAX),
+        -:  535:			       			(*IR->defaddress)(equated(cp->u.swtch.deflab));
+    #####:  536:			       		(*IR->defaddress)(equated(cp->u.swtch.labels[i]));
+        -:  537:			       	}
+    #####:  538:			       	swtoseg(CODE);
+    #####:  539:			       } break;
+    #####:  540:		default: assert(0);
+        -:  541:		}
+        1:  542:	src = save;
+        -:  543:}
+        -:  544:
+function undag called 1 returned 100% blocks executed 34%
+        1:  545:static Node undag(Node forest) {
+        1:  546:	Node p;
+        -:  547:
+        1:  548:	tail = &forest;
+        2:  549:	for (p = forest; p; p = p->link)
+        1:  550:		if (generic(p->op) == INDIR) {
+    #####:  551:			assert(p->count >= 1);
+    #####:  552:			visit(p, 1);
+    #####:  553:			if (p->syms[2]) {
+    #####:  554:				assert(p->syms[2]->u.t.cse);
+    #####:  555:				p->syms[2]->u.t.cse = NULL;
+    #####:  556:				addlocal(p->syms[2]);
+        -:  557:			}
+        1:  558:		} else if (iscall(p->op) && p->count >= 1)
+    #####:  559:			visit(p, 1);
+        -:  560:		else {
+        1:  561:			assert(p->count == 0),
+        -:  562:			visit(p, 1);
+        1:  563:			*tail = p;
+        1:  564:			tail = &p->link;
+        -:  565:		}
+        1:  566:	*tail = NULL;
+        1:  567:	return forest;
+        -:  568:}
+function replace called 0 returned 0% blocks executed 0%
+    #####:  569:static Node replace(Node p) {
+    #####:  570:	if (p && (  generic(p->op) == INDIR
+        -:  571:		 && generic(p->kids[0]->op) == ADDRL
+        -:  572:		 && p->kids[0]->syms[0]->temporary
+        -:  573:		 && p->kids[0]->syms[0]->u.t.replace)) {
+    #####:  574:		p = p->kids[0]->syms[0]->u.t.cse;
+    #####:  575:		if (generic(p->op) == INDIR && isaddrop(p->kids[0]->op))
+    #####:  576:			p = newnode(p->op, newnode(p->kids[0]->op, NULL, NULL,
+        -:  577:				p->kids[0]->syms[0]), NULL, NULL);
+    #####:  578:		else if (generic(p->op) == ADDRG)
+    #####:  579:			p = newnode(p->op, NULL, NULL, p->syms[0]);
+        -:  580:		else
+    #####:  581:			assert(0);
+    #####:  582:		p->count = 1;
+    #####:  583:	} else if (p) {
+    #####:  584:		p->kids[0] = replace(p->kids[0]);
+    #####:  585:		p->kids[1] = replace(p->kids[1]);
+        -:  586:	}
+    #####:  587:	return p;
+        -:  588:}
+function prune called 2 returned 100% blocks executed 24%
+        2:  589:static Node prune(Node forest) {
+        2:  590:	Node p, *tail = &forest;
+        2:  591:	int count = 0;
+        -:  592:
+        4:  593:	for (p = forest; p; p = p->link) {
+        2:  594:		if (count > 0) {
+    #####:  595:			p->kids[0] = replace(p->kids[0]);
+    #####:  596:			p->kids[1] = replace(p->kids[1]);
+        -:  597:		}
+        2:  598:		if ((  generic(p->op) == ASGN
+        -:  599:		    && generic(p->kids[0]->op) == ADDRL
+        -:  600:		    && p->kids[0]->syms[0]->temporary
+        -:  601:		    && p->kids[0]->syms[0]->u.t.cse == p->kids[1])) {
+    #####:  602:			Symbol tmp = p->kids[0]->syms[0];
+    #####:  603:			if (!tmp->defined)
+    #####:  604:				(*IR->local)(tmp);
+    #####:  605:			tmp->defined = 1;
+    #####:  606:			if ((  generic(p->kids[1]->op) == INDIR
+        -:  607:			    && isaddrop(p->kids[1]->kids[0]->op)
+        -:  608:			    && p->kids[1]->kids[0]->syms[0]->sclass == REGISTER)
+        -:  609:			|| ((  generic(p->kids[1]->op) == INDIR
+        -:  610:			    && isaddrop(p->kids[1]->kids[0]->op)) && tmp->sclass == AUTO)
+        -:  611:			|| (generic(p->kids[1]->op) == ADDRG && tmp->sclass == AUTO)) {
+    #####:  612:				tmp->u.t.replace = 1;
+    #####:  613:				count++;
+    #####:  614:				continue;	/* and omit the assignment */
+        -:  615:			}
+        -:  616:		}
+        -:  617:		/* keep the assignment and other roots */
+        2:  618:		*tail = p;
+        2:  619:		tail = &(*tail)->link;
+        -:  620:	}
+        2:  621:	assert(*tail == NULL);
+        2:  622:	return forest;
+        -:  623:}
+function visit called 13 returned 100% blocks executed 19%
+       13:  624:static Node visit(Node p, int listed) {
+       13:  625:	if (p)
+        6:  626:		if (p->syms[2])
+    #####:  627:			p = tmpnode(p);
+        6:  628:		else if (p->count <= 1 && !iscall(p->op)
+        -:  629:		||       p->count == 0 &&  iscall(p->op)) {
+        6:  630:			p->kids[0] = visit(p->kids[0], 0);
+        6:  631:			p->kids[1] = visit(p->kids[1], 0);
+        -:  632:		}
+        -:  633:
+    #####:  634:		else if (specific(p->op) == ADDRL+P || specific(p->op) == ADDRF+P) {
+    #####:  635:			assert(!listed);
+    #####:  636:			p = newnode(p->op, NULL, NULL, p->syms[0]);
+    #####:  637:			p->count = 1;
+        -:  638:		}
+    #####:  639:		else if (p->op == INDIR+B) {
+    #####:  640:			p = newnode(p->op, p->kids[0], NULL, NULL);
+    #####:  641:			p->count = 1;
+    #####:  642:			p->kids[0] = visit(p->kids[0], 0);
+    #####:  643:			p->kids[1] = visit(p->kids[1], 0);
+        -:  644:		}
+        -:  645:		else {
+    #####:  646:			p->kids[0] = visit(p->kids[0], 0);
+    #####:  647:			p->kids[1] = visit(p->kids[1], 0);
+    #####:  648:			p->syms[2] = temporary(REGISTER, btot(p->op, opsize(p->op)));
+    #####:  649:			assert(!p->syms[2]->defined);
+    #####:  650:			p->syms[2]->ref = 1;
+    #####:  651:			p->syms[2]->u.t.cse = p;
+        -:  652:
+    #####:  653:			*tail = asgnnode(p->syms[2], p);
+    #####:  654:			tail = &(*tail)->link;
+    #####:  655:			if (!listed)
+    #####:  656:				p = tmpnode(p);
+        -:  657:		};
+       13:  658:	return p;
+        -:  659:}
+function tmpnode called 0 returned 0% blocks executed 0%
+    #####:  660:static Node tmpnode(Node p) {
+    #####:  661:	Symbol tmp = p->syms[2];
+        -:  662:
+    #####:  663:	assert(tmp);
+    #####:  664:	if (--p->count == 0)
+    #####:  665:		p->syms[2] = NULL;
+    #####:  666:	p = newnode(INDIR + ttob(tmp->type),
+        -:  667:		newnode(ADDRL + ttob(voidptype), NULL, NULL, tmp), NULL, NULL);
+    #####:  668:	p->count = 1;
+    #####:  669:	return p;
+        -:  670:}
+function asgnnode called 0 returned 0% blocks executed 0%
+    #####:  671:static Node asgnnode(Symbol tmp, Node p) {
+    #####:  672:	p = newnode(ASGN + ttob(tmp->type),
+        -:  673:		newnode(ADDRL + ttob(voidptype), NULL, NULL, tmp), p, NULL);
+    #####:  674:	p->syms[0] = intconst(tmp->type->size);
+    #####:  675:	p->syms[1] = intconst(tmp->type->align);
+    #####:  676:	return p;
+        -:  677:}
+        -:  678:/* printdag - print dag p on fd, or the node list if p == 0 */
+function printdag called 0 returned 0% blocks executed 0%
+    #####:  679:void printdag(Node p, int fd) {
+    #####:  680:	FILE *f = fd == 1 ? stdout : stderr;
+        -:  681:
+    #####:  682:	printed(0);
+    #####:  683:	if (p == 0) {
+    #####:  684:		if ((p = forest) != NULL)
+    #####:  685:			do {
+    #####:  686:				p = p->link;
+    #####:  687:				printdag1(p, fd, 0);
+    #####:  688:			} while (p != forest);
+    #####:  689:	} else if (*printed(nodeid((Tree)p)))
+    #####:  690:		fprint(f, "node'%d printed above\n", nodeid((Tree)p));
+        -:  691:	else
+    #####:  692:		printdag1(p, fd, 0);
+        -:  693:}
+        -:  694:
+        -:  695:/* printdag1 - recursively print dag p */
+function printdag1 called 0 returned 0% blocks executed 0%
+    #####:  696:static void printdag1(Node p, int fd, int lev) {
+    #####:  697:	int id, i;
+        -:  698:
+    #####:  699:	if (p == 0 || *printed(id = nodeid((Tree)p)))
+    #####:  700:		return;
+    #####:  701:	*printed(id) = 1;
+    #####:  702:	for (i = 0; i < NELEMS(p->kids); i++)
+    #####:  703:		printdag1(p->kids[i], fd, lev + 1);
+    #####:  704:	printnode(p, fd, lev);
+        -:  705:}
+        -:  706:
+        -:  707:/* printnode - print fields of dag p */
+function printnode called 0 returned 0% blocks executed 0%
+    #####:  708:static void printnode(Node p, int fd, int lev) {
+    #####:  709:	if (p) {
+    #####:  710:		FILE *f = fd == 1 ? stdout : stderr;
+    #####:  711:		int i, id = nodeid((Tree)p);
+    #####:  712:		fprint(f, "%c%d%s", lev == 0 ? '\'' : '#', id,
+        -:  713:			&"   "[id < 10 ? 0 : id < 100 ? 1 : 2]);
+    #####:  714:		fprint(f, "%s count=%d", opname(p->op), p->count);
+    #####:  715:		for (i = 0; i < NELEMS(p->kids) && p->kids[i]; i++)
+    #####:  716:			fprint(f, " #%d", nodeid((Tree)p->kids[i]));
+    #####:  717:		if (generic(p->op) == CALL && p->syms[0] && p->syms[0]->type)
+    #####:  718:			fprint(f, " {%t}", p->syms[0]->type);
+        -:  719:		else
+    #####:  720:			for (i = 0; i < NELEMS(p->syms) && p->syms[i]; i++)
+    #####:  721:				if (p->syms[i]->name)
+    #####:  722:					fprint(f, " %s", p->syms[i]->name);
+        -:  723:				else
+    #####:  724:					fprint(f, " %p", p->syms[i]);
+    #####:  725:		fprint(f, "\n");
+        -:  726:	}
+        -:  727:}
+        -:  728:
+        -:  729:/* typestab - emit stab entries for p */
+function typestab called 0 returned 0% blocks executed 0%
+    #####:  730:static void typestab(Symbol p, void *cl) {
+    #####:  731:	if (!isfunc(p->type) && (p->sclass == EXTERN || p->sclass == STATIC) && IR->stabsym)
+    #####:  732:		(*IR->stabsym)(p);
+    #####:  733:	else if ((p->sclass == TYPEDEF || p->sclass == 0) && IR->stabtype)
+    #####:  734:		(*IR->stabtype)(p);
+        -:  735:}
+        -:  736:

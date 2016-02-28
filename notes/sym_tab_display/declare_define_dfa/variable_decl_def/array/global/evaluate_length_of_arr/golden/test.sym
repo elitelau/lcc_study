@@ -1,0 +1,29 @@
+--------------------------- external symbols -----------------------------------
+
+------------------------- global symbols --------------------------------
+   c: [static][defined=1][ref=0.0] | static int c[10]; | array 10 of int
+   b: [defined=1][ref=0.0] | char *const b[1]; | array 1 of const ptr->char
+   a: [extern][defined=0][ref=0.0] | extern const char *a[0]; | incomplete array of ptr->const char
+
+--------------------------- constant symbols -----------------------------------
+
+--------------------------- types symbols --------------------------------------
+   T*: [defined=0][ref=0.0] | 
+   void: [defined=0][ref=0.0] |  | void
+   unsigned long long: [defined=0][ref=0.0] |  | unsigned long long
+   unsigned int: [defined=0][ref=0.0] |  | unsigned int
+   unsigned short: [defined=0][ref=0.0] |  | unsigned short
+   unsigned long: [defined=0][ref=0.0] |  | unsigned long
+   unsigned char: [defined=0][ref=0.0] |  | unsigned char
+   signed char: [defined=0][ref=0.0] |  | signed char
+   short: [defined=0][ref=0.0] |  | short
+   long long int: [defined=0][ref=0.0] |  | long long int
+   long int: [defined=0][ref=0.0] |  | long int
+   long double: [defined=0][addressed][ref=0.0] |  | long double
+   int: [defined=0][ref=0.0] |  | int
+   float: [defined=0][addressed][ref=0.0] |  | float
+   double: [defined=0][addressed][ref=0.0] |  | double
+   char: [defined=0][ref=0.0] |  | char
+
+--------------------------- labels symbols -------------------------------------
+-------------------------------------------------------------------------------

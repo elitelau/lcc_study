@@ -1,0 +1,132 @@
+int (*fpfi(int (*)(long), int))(int, ...);  
+
+dclr()
+  |--dclr1()
+  |   |--<abstract function>           //(1) (
+  |   |    |--dclr1() <* part>
+  |   |    |    |--dclr1() <ID part>   //(2) (*fpfi |  id=fpfi | type : NULL
+  |   |    |    |   |--<concrete function>                     //(2.1) (
+  |   |    |    |        |--enterscope()
+  |   |    |    |        |--parameters()
+  |   |    |    |        |   |--specifier()                    //(2.2) (int
+  |   |    |    |        |   |--dclr/dclr1()
+  |   |    |    |        |   |   |--<abstract function>        //(2.3) (int (
+  |   |    |    |        |   |   |    |--dclr1()
+  |   |    |    |        |   |   |    |   |--<* part>          //(2.4) (int (* | PTR(NULL)
+  |   |    |    |        |   |   |    |--match ')'             //(2.5) (int (*)
+  |   |    |    |        |   |   |--<concreate function>       //(2.6) (int (*)(
+  |   |    |    |        |   |   |    |--enterscope()
+  |   |    |    |        |   |   |    |--enterscope()
+  |   |    |    |        |   |   |    |--parameters()
+  |   |    |    |        |   |   |    |   |--specifier()           //(2.6.1) long
+  |   |    |    |        |   |   |    |   |--dclr/dclr1()
+  |   |    |    |        |   |   |    |   |--match ')'             //(2.6.2) long) 
+  |   |    |    |        |   |   |    |--exitscope()
+  |   |    |    |        |   |   |    |--exitscope()
+  |   |    |    |        |   |   |--in dclr1(), construct type: 
+  |   |    |    |        |   |   |    FUNCTION(rty=PTR(NULL), proto=(LONG))
+  |   |    |    |        |   |   |--in dclr(), construct type: 
+  |   |    |    |        |   |   |    PTR->FUNCTION(rty=INT, proto=(LONG))
+  |   |    |    |        |   |--specifier()                    //(2.8) (int (*)(long), int
+  |   |    |    |        |   |--dclr/dclr1() // get type: INT
+  |   |    |    |        |   |--match ')'                      //(2.9) (int (*)(long), int) 
+  |   |    |    |        |--exitscope()
+  |   |    |    |        |--construct type: FUNCTION(rty=NULL, proto=  
+  |   |    |    |        |                     PTR->FUNCTION(rty=INT, proto=(LONG)))  
+  |   |    |    |--construct type: PTR->FUNCTION(rty=NULL, proto=
+  |   |    |    |                      PTR->FUNCTION(rty=INT, proto=(LONG)))  
+  |   |    |--match ')'                //(3) (int (*fpfi(int (*)(long), int))
+  |   |--<concrete function>           //(4) (int (*fpfi(int (*)(long), int))(
+  |   |    |--enterscope()
+  |   |    |--parameters()
+  |   |    |   |--specifier()          //(5) (int (*fpfi(int (*)(long), int))(int
+  |   |    |   |--dclr/dclr1()
+  |   |    |   |--specifier()          //(5) (int (*fpfi(int (*)(long), int))(int, ...
+  |   |    |   |--dclr/dclr1()
+  |   |    |   |--match ')'
+  |   |    |--exitscope()
+  |   |    |--construct type: FUNCTION(rty=PTR->FUNCTION(rty=NULL, proto= 
+  |                                         PTR->FUNCTION(rty=INT, proto=(LONG))), 
+  |                                    proto=(INT, ...))
+  |--finally, construct type:
+       PTR->FUNCTION(rty=INT, proto(INT, ...))
+       FUNCTION(rty=(PTR->FUNCTION(rty=INT, proto(INT, ...))), 
+                proto=(PTR->FUNCTION(rty=INT, proto=(LONG)))
+               ) 
+       
+       
+int (*fpfi(int (*)(long), int))(int, ...);
+           ~~~~~~~~~~~~~~~~~~~ (1)
+^^^^__________________________^vvvvvvvvvv
+\______________ ______________/\___ ____/
+               V                   v 
+              (2)                 (3)
+
+(1) is parsed in parameters() 
+(2) is parsed in dclr1() <abstract function>
+(3) is parsed in dcr11() <concrete function>
+
+ dclr()
+  |--dclr1()
+  |   |--<abstract function>                    // (  |  match '(' in col5
+  |         |--dclr1()
+  |              |--<* part>                    // (* 
+  |              |   |--dclr1()
+  |              |   |   |--<ID part>           // (*fpfi  | type=NULL
+  |              |   |   |--<concrete function> // (*fpfi(
+  |              |   |     [1]|--parameters()   
+  |              |   |        |   |--specifier()                    // int
+  |              |   |        |   |--dclr()
+  |              |   |        |   |   |--dclr1()    
+  |              |   |        |   |   |   |--<abstract function>    // int (
+  |              |   |        |   |   |   |    |--<* part>          // int (* | PTR->NULL
+  |              |   |        |   |   |   |    |--match ')'         // int (*)
+  |              |   |        |   |   |   |--<concrete function>    // int (*)( 
+  |              |   |        |   |   |   |    |--parameters()
+  |              |   |        |   |   |   |        |--specifier()   // int (*)(long
+  |              |   |        |   |   |   |        |--dclr()
+  |              |   |        |   |   |   |            |--dclr1()
+  |              |   |        |   |   |   |        |--match ')'     // int (*)(long)
+  |              |   |        |   |   |   |--construct type: FUNCTION(rty=PTR(NULL, proto=
+  |              |   |        |   |   |                              (LONG))
+  |              |   |        |   |  *|--get type: PTR->FUNCTION(rty=INT, proto=(LONG))
+  |              |   |        |   |--specifier()                    // int (*)(long), int
+  |              |   |        |   |--dclr()
+  |              |   |        |   |   |--dclr1()                    
+  |              |   |        |   |--match ')'                      // int (*)(long), int)
+  |              |   |        |--construct type: FUNCTION(rty=NULL, proto=(
+  |              |   |        |                    PTR->FUNCTION(rty=INT, proto=(LONG), int))
+  |              |   |        |                    )
+  |              |   |--construct type: 
+  |              |   |           PTR->FUNCTION(rty=NULL, proto=(
+  |              |   |                          PTR->FUNCTION(rty=INT, proto=(LONG), int))
+  |              |   |                          )
+  |              |--match ')'                   // (*fpfi(int (*)(long), int))(
+  |              |--<concrete function>
+  |                   |--parameters()
+  |                   |    |--specifier()        // (*fpfi(int (*)(long), int))(int
+  |                   |    |--dclr()
+  |                   |    |   |--dclr1()
+  |                   |    |--specifier()        // (*fpfi(int (*)(long), int))(int, ...
+  |                   |    |--dclr()
+  |                   |    |   |--dclr1()
+  |                   |    |--match ')'          // (*fpfi(int (*)(long), int))(int, ...)
+  |                   |--construct type: FUNCTION(rty=
+  |                                                PTR->FUNCTION(rty=NULL, proto=(
+  |                                                  PTR->FUNCTION(rty=INT, proto=(LONG), int))),
+  |                                               proto=(INT, ...)
+  |                                              )
+  |--get type: 
+         FUNCTION(rty=PTR->FUNCTION(rty=INT, proto=(INT, ...)), 
+                  proto=(PTR->FUNCTION(rty=INT, proto=LONG), int)
+                 )
+
+Note:
+[1] section parsed as parameters, always construct a complete type for its paramters.
+[2] sth special in returning a function of `pointer to function type; the parsing algorithm 
+    just follows the recursive way, not intuitive enough.
+    e.g. int (*(int (*fpfi)(long), int))(int, ...);  
+                   ~~[3]
+        this way in definition is more intuitive, however, cannot ultilize recursive.
+        [3] there is no ID, but '(' occurs, call <abstract function> instead of <concrete function following <ID part>; it will cause error in parsing.
+

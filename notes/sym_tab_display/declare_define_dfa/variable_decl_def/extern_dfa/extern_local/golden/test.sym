@@ -1,0 +1,30 @@
+--------------------------- external symbols -----------------------------------
+   a: [extern][defined=0][ref=1.0] | extern int a;
+
+------------------------- global symbols --------------------------------
+   f: [defined=1][newstyle][ref=0.0] | int f(void);
+
+--------------------------- constant symbols -----------------------------------
+   4: [static][defined=1][ref=0.0] | static int 4;
+   1: [static][defined=1][ref=0.0] | static int 1;
+
+--------------------------- types symbols --------------------------------------
+   T*: [defined=0][ref=0.0] | 
+   void: [defined=0][ref=0.0] | 
+   unsigned long long: [defined=0][ref=0.0] | 
+   unsigned int: [defined=0][ref=0.0] | 
+   unsigned short: [defined=0][ref=0.0] | 
+   unsigned long: [defined=0][ref=0.0] | 
+   unsigned char: [defined=0][ref=0.0] | 
+   signed char: [defined=0][ref=0.0] | 
+   short: [defined=0][ref=0.0] | 
+   long long int: [defined=0][ref=0.0] | 
+   long int: [defined=0][ref=0.0] | 
+   long double: [defined=0][addressed][ref=0.0] | 
+   int: [defined=0][ref=0.0] | 
+   float: [defined=0][addressed][ref=0.0] | 
+   double: [defined=0][addressed][ref=0.0] | 
+   char: [defined=0][ref=0.0] | 
+
+--------------------------- labels symbols -------------------------------------
+-------------------------------------------------------------------------------

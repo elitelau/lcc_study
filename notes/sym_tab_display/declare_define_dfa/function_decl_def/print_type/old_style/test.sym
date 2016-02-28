@@ -1,0 +1,66 @@
+-----------------start a function definition----------------
+   ++++++ LOCAL identifier symbols ++++++
+   ++++++ LOCAL type symbols ++++++
+
+
+   [function defn] int f(int, int) oldstyle
+   [function callee] {int a, int b}
+   [function caller] {int a, int b}
+-------------------end a function definition----------------
+
+-----------------start a function definition----------------
+   ++++++ LOCAL identifier symbols ++++++
+   ++++++ LOCAL type symbols ++++++
+
+
+   [function defn] int k(int, double) oldstyle
+   [function callee] {char a, float b}
+   [function caller] {int a, double b}
+-------------------end a function definition----------------
+
+-----------------start a function definition----------------
+   ++++++ LOCAL identifier symbols ++++++
+   ++++++ LOCAL type symbols ++++++
+
+
+   [function defn] void foo(int *, int *, int) oldstyle
+   [function callee] {int *a, int *b, int c}
+   [function caller] {int *a, int *b, int c}
+-------------------end a function definition----------------
+
+
+
+
+--------------------------- external symbols -----------------------------------
+
+------------------------- global symbols --------------------------------
+   foo: [defined=1][oldstyle][ref=0.0] | void foo(int *, int *, int) | void func(ptr->int,ptr->int,int)
+   k: [defined=1][oldstyle][ref=0.0] | int k(int, double) | int func(int,double)
+   f: [defined=1][oldstyle][ref=0.0] | int f(int, int) | int func(int,int)
+   g: [defined=0][oldstyle][ref=0.0] | int g() | int func
+
+--------------------------- constant symbols -----------------------------------
+   8: [static][defined=1][ref=0.0] | static int 8 | int
+   4: [static][defined=1][ref=0.0] | static int 4 | int
+   1: [static][defined=1][ref=0.0] | static int 1 | int
+
+--------------------------- types symbols --------------------------------------
+   T*: [defined=0][ref=0.0] | 
+   void: [defined=0][ref=0.0] |  | void
+   unsigned long long: [defined=0][ref=0.0] |  | unsigned long long
+   unsigned int: [defined=0][ref=0.0] |  | unsigned int
+   unsigned short: [defined=0][ref=0.0] |  | unsigned short
+   unsigned long: [defined=0][ref=0.0] |  | unsigned long
+   unsigned char: [defined=0][ref=0.0] |  | unsigned char
+   signed char: [defined=0][ref=0.0] |  | signed char
+   short: [defined=0][ref=0.0] |  | short
+   long long int: [defined=0][ref=0.0] |  | long long int
+   long int: [defined=0][ref=0.0] |  | long int
+   long double: [defined=0][addressed][ref=0.0] |  | long double
+   int: [defined=0][ref=0.0] |  | int
+   float: [defined=0][addressed][ref=0.0] |  | float
+   double: [defined=0][addressed][ref=0.0] |  | double
+   char: [defined=0][ref=0.0] |  | char
+
+--------------------------- labels symbols -------------------------------------
+-------------------------------------------------------------------------------
