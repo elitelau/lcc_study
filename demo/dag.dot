@@ -1,0 +1,377 @@
+////////////////////////////////////////////////////////////////////////////////
+// Generate the dot file for drawing dag forest for function statements
+
+// File name: test.c
+////////////////////////////////////////////////////////////////////////////////
+
+digraph dag_forest {
+    node [color=lightblue2, style=filled];
+
+    c1[label="Start", shape=ellipse];
+    c2[label="Blockbeg", shape=ellipse];
+    c3[label="Defpoint", shape=ellipse];
+    c4[label="Defpoint", shape=ellipse];
+    c5[label="Gen", shape=ellipse];
+    c5 -> d5_1; /*generate dag: */
+    d5_1 [label="ASGNI4"];
+    d5_2 [label="ADDRLP4\n\[i:reg\]"];
+    d5_3 [label="CNSTI4\n\[0\]"];
+    d5_1 -> d5_2 [label="to"];
+    d5_1 -> d5_3 [label="from"];
+
+    c6[label="Jump", shape=ellipse];
+    c6 -> d6_1; /*generate dag: */
+    d6_1 [label="JUMPV"];
+    d6_2 [label="ADDRGP4\[L=5\]"];
+    d6_1 -> d6_2;
+
+    c7[label="Label", shape=ellipse];
+    c7 -> d7_1; /*generate dag: */
+    d7_1 [label="LABELV\[L=2\]"];
+    c8[label="Blockbeg", shape=ellipse];
+    c9[label="Defpoint", shape=ellipse];
+    c10[label="Defpoint", shape=ellipse];
+    c11[label="Defpoint", shape=ellipse];
+    c12[label="Gen", shape=ellipse];
+    c12 -> d12_1; /*generate dag: */
+    d12_1 [label="ASGNI4"];
+    d12_2 [label="ADDRLP4\n\[min:reg\]"];
+    d12_3 [label="INDIRI4"];
+    d12_1 -> d12_2 [label="to"];
+    d12_1 -> d12_3 [label="from"];
+
+    d12_4 [label="ADDRLP4\n\[i:reg\]"];
+    d12_3 -> d12_4;
+
+    d13_1 [label="ASGNI4"];
+    d13_2 [label="ADDRLP4\n\[j:reg\]"];
+    d13_3 [label="ADDI4"];
+    d13_1 -> d13_2 [label="to"];
+    d13_1 -> d13_3 [label="from"];
+
+    d13_4 [label="CNSTI4\n\[1\]"];
+    d13_3 -> d12_3;
+    d13_3 -> d13_4;
+
+    d12_1->d13_1;
+    { rank=same; d12_1; d13_1;}
+    c13[label="Jump", shape=ellipse];
+    c13 -> d14_1; /*generate dag: */
+    d14_1 [label="JUMPV"];
+    d14_2 [label="ADDRGP4\[L=9\]"];
+    d14_1 -> d14_2;
+
+    c14[label="Label", shape=ellipse];
+    c14 -> d15_1; /*generate dag: */
+    d15_1 [label="LABELV\[L=6\]"];
+    c15[label="Blockbeg", shape=ellipse];
+    c16[label="Defpoint", shape=ellipse];
+    c17[label="Defpoint", shape=ellipse];
+    c18[label="Gen", shape=ellipse];
+    c18 -> d19_1; /*generate dag: */
+    d19_1 [label="GEI4\[L=10\]"];
+    d19_2 [label="INDIRI4"];
+    d19_3 [label="INDIRI4"];
+    d19_1 -> d19_2;
+    d19_1 -> d19_3;
+
+    d19_4 [label="ADDP4"];
+    d19_2 -> d19_4;
+
+    d19_5 [label="ADDP4"];
+    d19_3 -> d19_5;
+
+    d19_6 [label="LSHI4"];
+    d19_7 [label="INDIRP4"];
+    d19_4 -> d19_6;
+    d19_4 -> d19_7;
+
+    d19_8 [label="LSHI4"];
+    d19_5 -> d19_8;
+    d19_5 -> d19_7;
+
+    d19_9 [label="INDIRI4"];
+    d19_10 [label="CNSTI4\n\[2\]"];
+    d19_6 -> d19_9;
+    d19_6 -> d19_10;
+
+    d19_11 [label="ADDRFP4\n\[arr:reg\]"];
+    d19_7 -> d19_11;
+
+    d19_12 [label="INDIRI4"];
+    d19_8 -> d19_12;
+    d19_8 -> d19_10;
+
+    d19_13 [label="ADDRLP4\n\[j:reg\]"];
+    d19_9 -> d19_13;
+
+    d19_14 [label="ADDRLP4\n\[min:reg\]"];
+    d19_12 -> d19_14;
+
+    c19[label="Defpoint", shape=ellipse];
+    c20[label="Gen", shape=ellipse];
+    c20 -> d21_1; /*generate dag: */
+    d21_1 [label="ASGNI4"];
+    d21_2 [label="ADDRLP4\n\[min:reg\]"];
+    d21_3 [label="INDIRI4"];
+    d21_1 -> d21_2 [label="to"];
+    d21_1 -> d21_3 [label="from"];
+
+    d21_4 [label="ADDRLP4\n\[j:reg\]"];
+    d21_3 -> d21_4;
+
+    c21[label="Label", shape=ellipse];
+    c21 -> d22_1; /*generate dag: */
+    d22_1 [label="LABELV\[L=10\]"];
+    c22[label="Blockend", shape=ellipse];
+    c23[label="Defpoint", shape=ellipse];
+    c24[label="Label", shape=ellipse];
+    c24 -> d25_1; /*generate dag: */
+    d25_1 [label="LABELV\[L=7\]"];
+    c25[label="Defpoint", shape=ellipse];
+    c26[label="Gen", shape=ellipse];
+    c26 -> d27_1; /*generate dag: */
+    d27_1 [label="ASGNI4"];
+    d27_2 [label="ADDRLP4\n\[j:reg\]"];
+    d27_3 [label="ADDI4"];
+    d27_1 -> d27_2 [label="to"];
+    d27_1 -> d27_3 [label="from"];
+
+    d27_4 [label="INDIRI4"];
+    d27_5 [label="CNSTI4\n\[1\]"];
+    d27_3 -> d27_4;
+    d27_3 -> d27_5;
+
+    d27_4 -> d27_2;
+
+    c27[label="Label", shape=ellipse];
+    c27 -> d28_1; /*generate dag: */
+    d28_1 [label="LABELV\[L=9\]"];
+    c28[label="Defpoint", shape=ellipse];
+    c29[label="Gen", shape=ellipse];
+    c29 -> d30_1; /*generate dag: */
+    d30_1 [label="LTI4\[L=6\]"];
+    d30_2 [label="INDIRI4"];
+    d30_3 [label="INDIRI4"];
+    d30_1 -> d30_2;
+    d30_1 -> d30_3;
+
+    d30_4 [label="ADDRLP4\n\[j:reg\]"];
+    d30_2 -> d30_4;
+
+    d30_5 [label="ADDRFP4\n\[size:reg\]"];
+    d30_3 -> d30_5;
+
+    c30[label="Defpoint", shape=ellipse];
+    c31[label="Gen", shape=ellipse];
+    c31 -> d32_1; /*generate dag: */
+    d32_1 [label="EQI4\[L=12\]"];
+    d32_2 [label="INDIRI4"];
+    d32_3 [label="INDIRI4"];
+    d32_1 -> d32_2;
+    d32_1 -> d32_3;
+
+    d32_4 [label="ADDRLP4\n\[i:reg\]"];
+    d32_2 -> d32_4;
+
+    d32_5 [label="ADDRLP4\n\[min:reg\]"];
+    d32_3 -> d32_5;
+
+    c32[label="Blockbeg", shape=ellipse];
+    c33[label="Defpoint", shape=ellipse];
+    c34[label="Defpoint", shape=ellipse];
+    c35[label="Gen", shape=ellipse];
+    c35 -> d36_1; /*generate dag: */
+    d36_1 [label="ASGNI4"];
+    d36_2 [label="ADDP4"];
+    d36_3 [label="ADDI4"];
+    d36_1 -> d36_2 [label="to"];
+    d36_1 -> d36_3 [label="from"];
+
+    d36_4 [label="LSHI4"];
+    d36_5 [label="INDIRP4"];
+    d36_2 -> d36_4;
+    d36_2 -> d36_5;
+
+    d36_6 [label="INDIRI4"];
+    d36_7 [label="INDIRI4"];
+    d36_3 -> d36_6;
+    d36_3 -> d36_7;
+
+    d36_8 [label="INDIRI4"];
+    d36_9 [label="CNSTI4\n\[2\]"];
+    d36_4 -> d36_8;
+    d36_4 -> d36_9;
+
+    d36_10 [label="ADDRFP4\n\[arr:reg\]"];
+    d36_5 -> d36_10;
+
+    d36_6 -> d36_2;
+
+    d36_11 [label="ADDP4"];
+    d36_7 -> d36_11;
+
+    d36_12 [label="ADDRLP4\n\[i:reg\]"];
+    d36_8 -> d36_12;
+
+    d36_13 [label="LSHI4"];
+    d36_11 -> d36_13;
+    d36_11 -> d36_5;
+
+    d36_14 [label="INDIRI4"];
+    d36_13 -> d36_14;
+    d36_13 -> d36_9;
+
+    d36_15 [label="ADDRLP4\n\[min:reg\]"];
+    d36_14 -> d36_15;
+
+    c36[label="Defpoint", shape=ellipse];
+    c37[label="Gen", shape=ellipse];
+    c37 -> d38_1; /*generate dag: */
+    d38_1 [label="ASGNI4"];
+    d38_2 [label="ADDP4"];
+    d38_3 [label="SUBI4"];
+    d38_1 -> d38_2 [label="to"];
+    d38_1 -> d38_3 [label="from"];
+
+    d38_4 [label="LSHI4"];
+    d38_5 [label="INDIRP4"];
+    d38_2 -> d38_4;
+    d38_2 -> d38_5;
+
+    d38_6 [label="INDIRI4"];
+    d38_7 [label="INDIRI4"];
+    d38_3 -> d38_6;
+    d38_3 -> d38_7;
+
+    d38_8 [label="INDIRI4"];
+    d38_9 [label="CNSTI4\n\[2\]"];
+    d38_4 -> d38_8;
+    d38_4 -> d38_9;
+
+    d38_10 [label="ADDRFP4\n\[arr:reg\]"];
+    d38_5 -> d38_10;
+
+    d38_11 [label="ADDP4"];
+    d38_6 -> d38_11;
+
+    d38_7 -> d38_2;
+
+    d38_12 [label="ADDRLP4\n\[min:reg\]"];
+    d38_8 -> d38_12;
+
+    d38_13 [label="LSHI4"];
+    d38_11 -> d38_13;
+    d38_11 -> d38_5;
+
+    d38_14 [label="INDIRI4"];
+    d38_13 -> d38_14;
+    d38_13 -> d38_9;
+
+    d38_15 [label="ADDRLP4\n\[i:reg\]"];
+    d38_14 -> d38_15;
+
+    c38[label="Defpoint", shape=ellipse];
+    c39[label="Gen", shape=ellipse];
+    c39 -> d40_1; /*generate dag: */
+    d40_1 [label="ASGNI4"];
+    d40_2 [label="ADDP4"];
+    d40_3 [label="SUBI4"];
+    d40_1 -> d40_2 [label="to"];
+    d40_1 -> d40_3 [label="from"];
+
+    d40_4 [label="LSHI4"];
+    d40_5 [label="INDIRP4"];
+    d40_2 -> d40_4;
+    d40_2 -> d40_5;
+
+    d40_6 [label="INDIRI4"];
+    d40_7 [label="INDIRI4"];
+    d40_3 -> d40_6;
+    d40_3 -> d40_7;
+
+    d40_8 [label="INDIRI4"];
+    d40_9 [label="CNSTI4\n\[2\]"];
+    d40_4 -> d40_8;
+    d40_4 -> d40_9;
+
+    d40_10 [label="ADDRFP4\n\[arr:reg\]"];
+    d40_5 -> d40_10;
+
+    d40_6 -> d40_2;
+
+    d40_11 [label="ADDP4"];
+    d40_7 -> d40_11;
+
+    d40_12 [label="ADDRLP4\n\[i:reg\]"];
+    d40_8 -> d40_12;
+
+    d40_13 [label="LSHI4"];
+    d40_11 -> d40_13;
+    d40_11 -> d40_5;
+
+    d40_14 [label="INDIRI4"];
+    d40_13 -> d40_14;
+    d40_13 -> d40_9;
+
+    d40_15 [label="ADDRLP4\n\[min:reg\]"];
+    d40_14 -> d40_15;
+
+    c40[label="Blockend", shape=ellipse];
+    c41[label="Defpoint", shape=ellipse];
+    c42[label="Label", shape=ellipse];
+    c42 -> d43_1; /*generate dag: */
+    d43_1 [label="LABELV\[L=12\]"];
+    c43[label="Blockend", shape=ellipse];
+    c44[label="Defpoint", shape=ellipse];
+    c45[label="Label", shape=ellipse];
+    c45 -> d46_1; /*generate dag: */
+    d46_1 [label="LABELV\[L=3\]"];
+    c46[label="Defpoint", shape=ellipse];
+    c47[label="Gen", shape=ellipse];
+    c47 -> d48_1; /*generate dag: */
+    d48_1 [label="ASGNI4"];
+    d48_2 [label="ADDRLP4\n\[i:reg\]"];
+    d48_3 [label="ADDI4"];
+    d48_1 -> d48_2 [label="to"];
+    d48_1 -> d48_3 [label="from"];
+
+    d48_4 [label="INDIRI4"];
+    d48_5 [label="CNSTI4\n\[1\]"];
+    d48_3 -> d48_4;
+    d48_3 -> d48_5;
+
+    d48_4 -> d48_2;
+
+    c48[label="Label", shape=ellipse];
+    c48 -> d49_1; /*generate dag: */
+    d49_1 [label="LABELV\[L=5\]"];
+    c49[label="Defpoint", shape=ellipse];
+    c50[label="Gen", shape=ellipse];
+    c50 -> d51_1; /*generate dag: */
+    d51_1 [label="LTI4\[L=2\]"];
+    d51_2 [label="INDIRI4"];
+    d51_3 [label="SUBI4"];
+    d51_1 -> d51_2;
+    d51_1 -> d51_3;
+
+    d51_4 [label="ADDRLP4\n\[i:reg\]"];
+    d51_2 -> d51_4;
+
+    d51_5 [label="INDIRI4"];
+    d51_6 [label="CNSTI4\n\[1\]"];
+    d51_3 -> d51_5;
+    d51_3 -> d51_6;
+
+    d51_7 [label="ADDRFP4\n\[size:reg\]"];
+    d51_5 -> d51_7;
+
+    c51[label="Blockend", shape=ellipse];
+    c52[label="Defpoint", shape=ellipse];
+    c53[label="Label", shape=ellipse];
+    c53 -> d54_1; /*generate dag: */
+    d54_1 [label="LABELV\[L=1\]"];
+
+    c1->c2->c3->c4->c5->c6->c7->c8->c9->c10->c11->c12->c13->c14->c15->c16->c17->c18->c19->c20->c21->c22->c23->c24->c25->c26->c27->c28->c29->c30->c31->c32->c33->c34->c35->c36->c37->c38->c39->c40->c41->c42->c43->c44->c45->c46->c47->c48->c49->c50->c51->c52->c53;
+    { rank=same; c1; c2; c3; c4; c5; c6; c7; c8; c9; c10; c11; c12; c13; c14; c15; c16; c17; c18; c19; c20; c21; c22; c23; c24; c25; c26; c27; c28; c29; c30; c31; c32; c33; c34; c35; c36; c37; c38; c39; c40; c41; c42; c43; c44; c45; c46; c47; c48; c49; c50; c51; c52; c53;}
+}

@@ -1,0 +1,543 @@
+////////////////////////////////////////////////////////////////////////////////
+// Generate the dot file for drawing dag forest for function statements
+
+// File name: test.c
+////////////////////////////////////////////////////////////////////////////////
+
+digraph dag_forest {
+    node [color=lightblue2, style=filled];
+
+    c1[label="Start", shape=ellipse];
+    c2[label="Blockbeg", shape=ellipse];
+    c3[label="Defpoint", shape=ellipse];
+    c4[label="Defpoint", shape=ellipse];
+    c5[label="Gen", shape=ellipse];
+    c5 -> d5_1; /*generate dag: */
+    d5_1 [label="ASGNI4-0"];
+    d5_2 [label="ADDRLP4-1\n\[i:reg\]"];
+    d5_3 [label="CNSTI4-1\n\[0\]"];
+    d5_1 -> d5_2 [label="to"];
+    d5_1 -> d5_3 [label="from"];
+
+    c6[label="Jump", shape=ellipse];
+    c6 -> d6_1; /*generate dag: */
+    d6_1 [label="JUMPV-0"];
+    d6_2 [label="ADDRGP4-1\[L=5\]"];
+    d6_1 -> d6_2;
+
+    c7[label="Label", shape=ellipse];
+    c7 -> d7_1; /*generate dag: */
+    d7_1 [label="LABELV-0\[L=2\]"];
+    c8[label="Blockbeg", shape=ellipse];
+    c9[label="Defpoint", shape=ellipse];
+    c10[label="Defpoint", shape=ellipse];
+    c11[label="Defpoint", shape=ellipse];
+    c12[label="Gen", shape=ellipse];
+    c12 -> d12_1; /*generate dag: */
+    d12_1 [label="ASGNI4-0"];
+    d12_2 [label="ADDRLP4-1\n\[cse:1\]"];
+    d12_3 [label="INDIRI4-1"];
+    d12_1 -> d12_2 [label="to"];
+    d12_1 -> d12_3 [label="from"];
+
+    d12_4 [label="ADDRLP4-1\n\[i:reg\]"];
+    d12_3 -> d12_4;
+
+    d13_1 [label="ASGNI4-0"];
+    d13_2 [label="ADDRLP4-1\n\[min:reg\]"];
+    d13_3 [label="INDIRI4-1"];
+    d13_1 -> d13_2 [label="to"];
+    d13_1 -> d13_3 [label="from"];
+
+    d13_4 [label="ADDRLP4-1\n\[cse:1\]"];
+    d13_3 -> d13_4;
+
+    d14_1 [label="ASGNI4-0"];
+    d14_2 [label="ADDRLP4-1\n\[j:reg\]"];
+    d14_3 [label="ADDI4-1"];
+    d14_1 -> d14_2 [label="to"];
+    d14_1 -> d14_3 [label="from"];
+
+    d14_4 [label="INDIRI4-1"];
+    d14_5 [label="CNSTI4-1\n\[1\]"];
+    d14_3 -> d14_4;
+    d14_3 -> d14_5;
+
+    d14_6 [label="ADDRLP4-1\n\[cse:1\]"];
+    d14_4 -> d14_6;
+
+    d12_1->d13_1->d14_1;
+    { rank=same; d12_1; d13_1; d14_1;}
+    c13[label="Jump", shape=ellipse];
+    c13 -> d15_1; /*generate dag: */
+    d15_1 [label="JUMPV-0"];
+    d15_2 [label="ADDRGP4-1\[L=9\]"];
+    d15_1 -> d15_2;
+
+    c14[label="Label", shape=ellipse];
+    c14 -> d16_1; /*generate dag: */
+    d16_1 [label="LABELV-0\[L=6\]"];
+    c15[label="Blockbeg", shape=ellipse];
+    c16[label="Defpoint", shape=ellipse];
+    c17[label="Defpoint", shape=ellipse];
+    c18[label="Gen", shape=ellipse];
+    c18 -> d20_1; /*generate dag: */
+    d20_1 [label="ASGNI4-0"];
+    d20_2 [label="ADDRLP4-1\n\[cse:2\]"];
+    d20_3 [label="CNSTI4-1\n\[2\]"];
+    d20_1 -> d20_2 [label="to"];
+    d20_1 -> d20_3 [label="from"];
+
+    d21_1 [label="ASGNP4-0"];
+    d21_2 [label="ADDRLP4-1\n\[cse:3\]"];
+    d21_3 [label="INDIRP4-1"];
+    d21_1 -> d21_2 [label="to"];
+    d21_1 -> d21_3 [label="from"];
+
+    d21_4 [label="ADDRFP4-1\n\[arr\]"];
+    d21_3 -> d21_4;
+
+    d22_1 [label="GEI4-0\[L=10\]"];
+    d22_2 [label="INDIRI4-1"];
+    d22_3 [label="INDIRI4-1"];
+    d22_1 -> d22_2;
+    d22_1 -> d22_3;
+
+    d22_4 [label="ADDP4-1"];
+    d22_2 -> d22_4;
+
+    d22_5 [label="ADDP4-1"];
+    d22_3 -> d22_5;
+
+    d22_6 [label="LSHI4-1"];
+    d22_7 [label="INDIRP4-1"];
+    d22_4 -> d22_6;
+    d22_4 -> d22_7;
+
+    d22_8 [label="LSHI4-1"];
+    d22_9 [label="INDIRP4-1"];
+    d22_5 -> d22_8;
+    d22_5 -> d22_9;
+
+    d22_10 [label="INDIRI4-1"];
+    d22_11 [label="INDIRI4-1"];
+    d22_6 -> d22_10;
+    d22_6 -> d22_11;
+
+    d22_12 [label="ADDRLP4-1\n\[cse:3\]"];
+    d22_7 -> d22_12;
+
+    d22_13 [label="INDIRI4-1"];
+    d22_14 [label="INDIRI4-1"];
+    d22_8 -> d22_13;
+    d22_8 -> d22_14;
+
+    d22_15 [label="ADDRLP4-1\n\[cse:3\]"];
+    d22_9 -> d22_15;
+
+    d22_16 [label="ADDRLP4-1\n\[j:reg\]"];
+    d22_10 -> d22_16;
+
+    d22_17 [label="ADDRLP4-1\n\[cse:2\]"];
+    d22_11 -> d22_17;
+
+    d22_18 [label="ADDRLP4-1\n\[min:reg\]"];
+    d22_13 -> d22_18;
+
+    d22_19 [label="ADDRLP4-1\n\[cse:2\]"];
+    d22_14 -> d22_19;
+
+    d20_1->d21_1->d22_1;
+    { rank=same; d20_1; d21_1; d22_1;}
+    c19[label="Defpoint", shape=ellipse];
+    c20[label="Gen", shape=ellipse];
+    c20 -> d24_1; /*generate dag: */
+    d24_1 [label="ASGNI4-0"];
+    d24_2 [label="ADDRLP4-1\n\[min:reg\]"];
+    d24_3 [label="INDIRI4-1"];
+    d24_1 -> d24_2 [label="to"];
+    d24_1 -> d24_3 [label="from"];
+
+    d24_4 [label="ADDRLP4-1\n\[j:reg\]"];
+    d24_3 -> d24_4;
+
+    c21[label="Label", shape=ellipse];
+    c21 -> d25_1; /*generate dag: */
+    d25_1 [label="LABELV-0\[L=10\]"];
+    c22[label="Blockend", shape=ellipse];
+    c23[label="Defpoint", shape=ellipse];
+    c24[label="Label", shape=ellipse];
+    c24 -> d28_1; /*generate dag: */
+    d28_1 [label="LABELV-0\[L=7\]"];
+    c25[label="Defpoint", shape=ellipse];
+    c26[label="Gen", shape=ellipse];
+    c26 -> d30_1; /*generate dag: */
+    d30_1 [label="ASGNI4-0"];
+    d30_2 [label="ADDRLP4-1\n\[j:reg\]"];
+    d30_3 [label="ADDI4-1"];
+    d30_1 -> d30_2 [label="to"];
+    d30_1 -> d30_3 [label="from"];
+
+    d30_4 [label="INDIRI4-1"];
+    d30_5 [label="CNSTI4-1\n\[1\]"];
+    d30_3 -> d30_4;
+    d30_3 -> d30_5;
+
+    d30_6 [label="ADDRLP4-1\n\[j:reg\]"];
+    d30_4 -> d30_6;
+
+    c27[label="Label", shape=ellipse];
+    c27 -> d31_1; /*generate dag: */
+    d31_1 [label="LABELV-0\[L=9\]"];
+    c28[label="Defpoint", shape=ellipse];
+    c29[label="Gen", shape=ellipse];
+    c29 -> d33_1; /*generate dag: */
+    d33_1 [label="LTI4-0\[L=6\]"];
+    d33_2 [label="INDIRI4-1"];
+    d33_3 [label="INDIRI4-1"];
+    d33_1 -> d33_2;
+    d33_1 -> d33_3;
+
+    d33_4 [label="ADDRLP4-1\n\[j:reg\]"];
+    d33_2 -> d33_4;
+
+    d33_5 [label="ADDRFP4-1\n\[size\]"];
+    d33_3 -> d33_5;
+
+    c30[label="Defpoint", shape=ellipse];
+    c31[label="Gen", shape=ellipse];
+    c31 -> d35_1; /*generate dag: */
+    d35_1 [label="EQI4-0\[L=12\]"];
+    d35_2 [label="INDIRI4-1"];
+    d35_3 [label="INDIRI4-1"];
+    d35_1 -> d35_2;
+    d35_1 -> d35_3;
+
+    d35_4 [label="ADDRLP4-1\n\[i:reg\]"];
+    d35_2 -> d35_4;
+
+    d35_5 [label="ADDRLP4-1\n\[min:reg\]"];
+    d35_3 -> d35_5;
+
+    c32[label="Blockbeg", shape=ellipse];
+    c33[label="Defpoint", shape=ellipse];
+    c34[label="Defpoint", shape=ellipse];
+    c35[label="Gen", shape=ellipse];
+    c35 -> d39_1; /*generate dag: */
+    d39_1 [label="ASGNI4-0"];
+    d39_2 [label="ADDRLP4-1\n\[cse:4\]"];
+    d39_3 [label="CNSTI4-1\n\[2\]"];
+    d39_1 -> d39_2 [label="to"];
+    d39_1 -> d39_3 [label="from"];
+
+    d40_1 [label="ASGNP4-0"];
+    d40_2 [label="ADDRLP4-1\n\[cse:5\]"];
+    d40_3 [label="INDIRP4-1"];
+    d40_1 -> d40_2 [label="to"];
+    d40_1 -> d40_3 [label="from"];
+
+    d40_4 [label="ADDRFP4-1\n\[arr\]"];
+    d40_3 -> d40_4;
+
+    d41_1 [label="ASGNP4-0"];
+    d41_2 [label="ADDRLP4-1\n\[cse:6\]"];
+    d41_3 [label="ADDP4-1"];
+    d41_1 -> d41_2 [label="to"];
+    d41_1 -> d41_3 [label="from"];
+
+    d41_4 [label="LSHI4-1"];
+    d41_5 [label="INDIRP4-1"];
+    d41_3 -> d41_4;
+    d41_3 -> d41_5;
+
+    d41_6 [label="INDIRI4-1"];
+    d41_7 [label="INDIRI4-1"];
+    d41_4 -> d41_6;
+    d41_4 -> d41_7;
+
+    d41_8 [label="ADDRLP4-1\n\[cse:5\]"];
+    d41_5 -> d41_8;
+
+    d41_9 [label="ADDRLP4-1\n\[i:reg\]"];
+    d41_6 -> d41_9;
+
+    d41_10 [label="ADDRLP4-1\n\[cse:4\]"];
+    d41_7 -> d41_10;
+
+    d42_1 [label="ASGNI4-0"];
+    d42_2 [label="INDIRP4-1"];
+    d42_3 [label="ADDI4-1"];
+    d42_1 -> d42_2 [label="to"];
+    d42_1 -> d42_3 [label="from"];
+
+    d42_4 [label="ADDRLP4-1\n\[cse:6\]"];
+    d42_2 -> d42_4;
+
+    d42_5 [label="INDIRI4-1"];
+    d42_6 [label="INDIRI4-1"];
+    d42_3 -> d42_5;
+    d42_3 -> d42_6;
+
+    d42_7 [label="INDIRP4-1"];
+    d42_5 -> d42_7;
+
+    d42_8 [label="ADDP4-1"];
+    d42_6 -> d42_8;
+
+    d42_9 [label="ADDRLP4-1\n\[cse:6\]"];
+    d42_7 -> d42_9;
+
+    d42_10 [label="LSHI4-1"];
+    d42_11 [label="INDIRP4-1"];
+    d42_8 -> d42_10;
+    d42_8 -> d42_11;
+
+    d42_12 [label="INDIRI4-1"];
+    d42_13 [label="INDIRI4-1"];
+    d42_10 -> d42_12;
+    d42_10 -> d42_13;
+
+    d42_14 [label="ADDRLP4-1\n\[cse:5\]"];
+    d42_11 -> d42_14;
+
+    d42_15 [label="ADDRLP4-1\n\[min:reg\]"];
+    d42_12 -> d42_15;
+
+    d42_16 [label="ADDRLP4-1\n\[cse:4\]"];
+    d42_13 -> d42_16;
+
+    d39_1->d40_1->d41_1->d42_1;
+    { rank=same; d39_1; d40_1; d41_1; d42_1;}
+    c36[label="Defpoint", shape=ellipse];
+    c37[label="Gen", shape=ellipse];
+    c37 -> d44_1; /*generate dag: */
+    d44_1 [label="ASGNI4-0"];
+    d44_2 [label="ADDRLP4-1\n\[cse:7\]"];
+    d44_3 [label="CNSTI4-1\n\[2\]"];
+    d44_1 -> d44_2 [label="to"];
+    d44_1 -> d44_3 [label="from"];
+
+    d45_1 [label="ASGNP4-0"];
+    d45_2 [label="ADDRLP4-1\n\[cse:8\]"];
+    d45_3 [label="INDIRP4-1"];
+    d45_1 -> d45_2 [label="to"];
+    d45_1 -> d45_3 [label="from"];
+
+    d45_4 [label="ADDRFP4-1\n\[arr\]"];
+    d45_3 -> d45_4;
+
+    d46_1 [label="ASGNP4-0"];
+    d46_2 [label="ADDRLP4-1\n\[cse:9\]"];
+    d46_3 [label="ADDP4-1"];
+    d46_1 -> d46_2 [label="to"];
+    d46_1 -> d46_3 [label="from"];
+
+    d46_4 [label="LSHI4-1"];
+    d46_5 [label="INDIRP4-1"];
+    d46_3 -> d46_4;
+    d46_3 -> d46_5;
+
+    d46_6 [label="INDIRI4-1"];
+    d46_7 [label="INDIRI4-1"];
+    d46_4 -> d46_6;
+    d46_4 -> d46_7;
+
+    d46_8 [label="ADDRLP4-1\n\[cse:8\]"];
+    d46_5 -> d46_8;
+
+    d46_9 [label="ADDRLP4-1\n\[min:reg\]"];
+    d46_6 -> d46_9;
+
+    d46_10 [label="ADDRLP4-1\n\[cse:7\]"];
+    d46_7 -> d46_10;
+
+    d47_1 [label="ASGNI4-0"];
+    d47_2 [label="INDIRP4-1"];
+    d47_3 [label="SUBI4-1"];
+    d47_1 -> d47_2 [label="to"];
+    d47_1 -> d47_3 [label="from"];
+
+    d47_4 [label="ADDRLP4-1\n\[cse:9\]"];
+    d47_2 -> d47_4;
+
+    d47_5 [label="INDIRI4-1"];
+    d47_6 [label="INDIRI4-1"];
+    d47_3 -> d47_5;
+    d47_3 -> d47_6;
+
+    d47_7 [label="ADDP4-1"];
+    d47_5 -> d47_7;
+
+    d47_8 [label="INDIRP4-1"];
+    d47_6 -> d47_8;
+
+    d47_9 [label="LSHI4-1"];
+    d47_10 [label="INDIRP4-1"];
+    d47_7 -> d47_9;
+    d47_7 -> d47_10;
+
+    d47_11 [label="ADDRLP4-1\n\[cse:9\]"];
+    d47_8 -> d47_11;
+
+    d47_12 [label="INDIRI4-1"];
+    d47_13 [label="INDIRI4-1"];
+    d47_9 -> d47_12;
+    d47_9 -> d47_13;
+
+    d47_14 [label="ADDRLP4-1\n\[cse:8\]"];
+    d47_10 -> d47_14;
+
+    d47_15 [label="ADDRLP4-1\n\[i:reg\]"];
+    d47_12 -> d47_15;
+
+    d47_16 [label="ADDRLP4-1\n\[cse:7\]"];
+    d47_13 -> d47_16;
+
+    d44_1->d45_1->d46_1->d47_1;
+    { rank=same; d44_1; d45_1; d46_1; d47_1;}
+    c38[label="Defpoint", shape=ellipse];
+    c39[label="Gen", shape=ellipse];
+    c39 -> d49_1; /*generate dag: */
+    d49_1 [label="ASGNI4-0"];
+    d49_2 [label="ADDRLP4-1\n\[cse:10\]"];
+    d49_3 [label="CNSTI4-1\n\[2\]"];
+    d49_1 -> d49_2 [label="to"];
+    d49_1 -> d49_3 [label="from"];
+
+    d50_1 [label="ASGNP4-0"];
+    d50_2 [label="ADDRLP4-1\n\[cse:11\]"];
+    d50_3 [label="INDIRP4-1"];
+    d50_1 -> d50_2 [label="to"];
+    d50_1 -> d50_3 [label="from"];
+
+    d50_4 [label="ADDRFP4-1\n\[arr\]"];
+    d50_3 -> d50_4;
+
+    d51_1 [label="ASGNP4-0"];
+    d51_2 [label="ADDRLP4-1\n\[cse:12\]"];
+    d51_3 [label="ADDP4-1"];
+    d51_1 -> d51_2 [label="to"];
+    d51_1 -> d51_3 [label="from"];
+
+    d51_4 [label="LSHI4-1"];
+    d51_5 [label="INDIRP4-1"];
+    d51_3 -> d51_4;
+    d51_3 -> d51_5;
+
+    d51_6 [label="INDIRI4-1"];
+    d51_7 [label="INDIRI4-1"];
+    d51_4 -> d51_6;
+    d51_4 -> d51_7;
+
+    d51_8 [label="ADDRLP4-1\n\[cse:11\]"];
+    d51_5 -> d51_8;
+
+    d51_9 [label="ADDRLP4-1\n\[i:reg\]"];
+    d51_6 -> d51_9;
+
+    d51_10 [label="ADDRLP4-1\n\[cse:10\]"];
+    d51_7 -> d51_10;
+
+    d52_1 [label="ASGNI4-0"];
+    d52_2 [label="INDIRP4-1"];
+    d52_3 [label="SUBI4-1"];
+    d52_1 -> d52_2 [label="to"];
+    d52_1 -> d52_3 [label="from"];
+
+    d52_4 [label="ADDRLP4-1\n\[cse:12\]"];
+    d52_2 -> d52_4;
+
+    d52_5 [label="INDIRI4-1"];
+    d52_6 [label="INDIRI4-1"];
+    d52_3 -> d52_5;
+    d52_3 -> d52_6;
+
+    d52_7 [label="INDIRP4-1"];
+    d52_5 -> d52_7;
+
+    d52_8 [label="ADDP4-1"];
+    d52_6 -> d52_8;
+
+    d52_9 [label="ADDRLP4-1\n\[cse:12\]"];
+    d52_7 -> d52_9;
+
+    d52_10 [label="LSHI4-1"];
+    d52_11 [label="INDIRP4-1"];
+    d52_8 -> d52_10;
+    d52_8 -> d52_11;
+
+    d52_12 [label="INDIRI4-1"];
+    d52_13 [label="INDIRI4-1"];
+    d52_10 -> d52_12;
+    d52_10 -> d52_13;
+
+    d52_14 [label="ADDRLP4-1\n\[cse:11\]"];
+    d52_11 -> d52_14;
+
+    d52_15 [label="ADDRLP4-1\n\[min:reg\]"];
+    d52_12 -> d52_15;
+
+    d52_16 [label="ADDRLP4-1\n\[cse:10\]"];
+    d52_13 -> d52_16;
+
+    d49_1->d50_1->d51_1->d52_1;
+    { rank=same; d49_1; d50_1; d51_1; d52_1;}
+    c40[label="Blockend", shape=ellipse];
+    c41[label="Defpoint", shape=ellipse];
+    c42[label="Label", shape=ellipse];
+    c42 -> d55_1; /*generate dag: */
+    d55_1 [label="LABELV-0\[L=12\]"];
+    c43[label="Blockend", shape=ellipse];
+    c44[label="Defpoint", shape=ellipse];
+    c45[label="Label", shape=ellipse];
+    c45 -> d58_1; /*generate dag: */
+    d58_1 [label="LABELV-0\[L=3\]"];
+    c46[label="Defpoint", shape=ellipse];
+    c47[label="Gen", shape=ellipse];
+    c47 -> d60_1; /*generate dag: */
+    d60_1 [label="ASGNI4-0"];
+    d60_2 [label="ADDRLP4-1\n\[i:reg\]"];
+    d60_3 [label="ADDI4-1"];
+    d60_1 -> d60_2 [label="to"];
+    d60_1 -> d60_3 [label="from"];
+
+    d60_4 [label="INDIRI4-1"];
+    d60_5 [label="CNSTI4-1\n\[1\]"];
+    d60_3 -> d60_4;
+    d60_3 -> d60_5;
+
+    d60_6 [label="ADDRLP4-1\n\[i:reg\]"];
+    d60_4 -> d60_6;
+
+    c48[label="Label", shape=ellipse];
+    c48 -> d61_1; /*generate dag: */
+    d61_1 [label="LABELV-0\[L=5\]"];
+    c49[label="Defpoint", shape=ellipse];
+    c50[label="Gen", shape=ellipse];
+    c50 -> d63_1; /*generate dag: */
+    d63_1 [label="LTI4-0\[L=2\]"];
+    d63_2 [label="INDIRI4-1"];
+    d63_3 [label="SUBI4-1"];
+    d63_1 -> d63_2;
+    d63_1 -> d63_3;
+
+    d63_4 [label="ADDRLP4-1\n\[i:reg\]"];
+    d63_2 -> d63_4;
+
+    d63_5 [label="INDIRI4-1"];
+    d63_6 [label="CNSTI4-1\n\[1\]"];
+    d63_3 -> d63_5;
+    d63_3 -> d63_6;
+
+    d63_7 [label="ADDRFP4-1\n\[size\]"];
+    d63_5 -> d63_7;
+
+    c51[label="Blockend", shape=ellipse];
+    c52[label="Defpoint", shape=ellipse];
+    c53[label="Label", shape=ellipse];
+    c53 -> d66_1; /*generate dag: */
+    d66_1 [label="LABELV-0\[L=1\]"];
+
+    c1->c2->c3->c4->c5->c6->c7->c8->c9->c10->c11->c12->c13->c14->c15->c16->c17->c18->c19->c20->c21->c22->c23->c24->c25->c26->c27->c28->c29->c30->c31->c32->c33->c34->c35->c36->c37->c38->c39->c40->c41->c42->c43->c44->c45->c46->c47->c48->c49->c50->c51->c52->c53;
+    { rank=same; c1; c2; c3; c4; c5; c6; c7; c8; c9; c10; c11; c12; c13; c14; c15; c16; c17; c18; c19; c20; c21; c22; c23; c24; c25; c26; c27; c28; c29; c30; c31; c32; c33; c34; c35; c36; c37; c38; c39; c40; c41; c42; c43; c44; c45; c46; c47; c48; c49; c50; c51; c52; c53;}
+}
